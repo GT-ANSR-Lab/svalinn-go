@@ -892,12 +892,6 @@ type schedt struct {
 	// M, but waiting for locks within the runtime. This field stores the value
 	// for Ms that have exited.
 	totalRuntimeLockWaitTime atomic.Int64
-
-	// Cached queueing delay estimates (ns), recomputed by QueueDelay()
-	// at most once per queueDelayRefreshInterval.
-	maxQueueDelay        atomic.Int64
-	avgQueueDelay        atomic.Int64
-	queueDelayLastUpdate atomic.Int64
 }
 
 // Values for the flags field of a sigTabT.

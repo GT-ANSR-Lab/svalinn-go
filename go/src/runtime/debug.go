@@ -180,27 +180,9 @@ func NumGoroutine() int {
 	return int(gcount())
 }
 
-// queueDelayRefreshInterval is the minimum duration (in ns) between
-// recomputations of the cached queueing delay estimates. Callers of
-// QueueDelay() within this window get the cached values.
-const queueDelayRefreshInterval = 100_000 // 100µs
-
 // QueueDelay returns the maximum queueing delay and the average queueing
-// delay (in ns) across all Ps. The result is cached and recomputed at most
-// once per queueDelayRefreshInterval.
+// delay (in ns) across all Ps.
 func QueueDelay() (uint64, uint64) {
-	now := nanotime()
-	last := sched.queueDelayLastUpdate.Load()
-
-	if now-last < queueDelayRefreshInterval {
-		return uint64(sched.maxQueueDelay.Load()), uint64(sched.avgQueueDelay.Load())
-	}
-
-	// Try to claim the update. If another goroutine beats us, return cached.
-	if !sched.queueDelayLastUpdate.CompareAndSwap(last, now) {
-		return uint64(sched.maxQueueDelay.Load()), uint64(sched.avgQueueDelay.Load())
-	}
-
 	maxDelay := int64(0)
 	totalDelay := int64(0)
 	nps := int64(0)
@@ -224,8 +206,6 @@ func QueueDelay() (uint64, uint64) {
 	if nps > 0 {
 		avgDelay = totalDelay / nps
 	}
-	sched.maxQueueDelay.Store(maxDelay)
-	sched.avgQueueDelay.Store(avgDelay)
 
 	return uint64(maxDelay), uint64(avgDelay)
 }
