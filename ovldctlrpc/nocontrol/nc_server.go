@@ -233,10 +233,10 @@ again:
 		s.NumPending++
 		if SncAqmOn {
 			// Get the runtime queueing delay
-			_, avgQueueDelay := runtime.QueueDelay()
-			avgQueueDelay = avgQueueDelay / 1000
+			maxQueueDelay, _ := runtime.QueueDelay()
+			maxQueueDelay = maxQueueDelay / 1000
 			// Check if we need to drop the request
-			if avgQueueDelay >= SncAqmThresh {
+			if maxQueueDelay >= SncAqmThresh {
 				ctx.Cmn.Drop = true
 				s.CompletedSlots.Set(uint32(idx))
 				s.SendCondVar.Signal()

@@ -651,10 +651,10 @@ again:
 		AtomicAddUint64(&ops.SpgCmInCnt, 1)
 
 		// Perform AQM
-		_, avgQueueDelay := runtime.QueueDelay()
-		avgQueueDelay = avgQueueDelay / 1000
-		if avgQueueDelay >= SpgLatencyBudget {
-			spgHandleReqDrop(ops, s, avgQueueDelay)
+		maxQueueDelay, _ := runtime.QueueDelay()
+		maxQueueDelay = maxQueueDelay / 1000
+		if maxQueueDelay >= SpgLatencyBudget {
+			spgHandleReqDrop(ops, s, maxQueueDelay)
 			ctx.Cmn.Drop = true
 			s.CompletedSlots.Set(uint32(idx))
 			s.SendCondVar.Signal()

@@ -516,12 +516,12 @@ func sbwUpdateCreditPool(ops *SbwOps) {
 	newCp := AtomicGetUint64(&ops.SbwCreditPool)
 	creditUsed := AtomicGetUint64(&ops.SbwCreditUsed)
 
-	_, avgQueueDelay := runtime.QueueDelay()
-	avgQueueDelay /= 1000
-	if avgQueueDelay >= SbwDelayTarget {
-		newCp = sbwDecrCreditPool(ops, avgQueueDelay)
+	maxQueueDelay, _ := runtime.QueueDelay()
+	maxQueueDelay /= 1000
+	if maxQueueDelay >= SbwDelayTarget {
+		newCp = sbwDecrCreditPool(ops, maxQueueDelay)
 	} else {
-		newCp = sbwIncrCreditPool(ops, avgQueueDelay)
+		newCp = sbwIncrCreditPool(ops, maxQueueDelay)
 	}
 
 	creditUnused := newCp - creditUsed
@@ -626,10 +626,10 @@ again:
 		AtomicAddUint64(&ops.SbwNumPending, 1)
 
 		// Perform AQM
-		_, avgQueueDelay := runtime.QueueDelay()
-		avgQueueDelay = avgQueueDelay / 1000
-		if avgQueueDelay >= SbwDropThresh {
-			sbwHandleReqDrop(ops, s, avgQueueDelay)
+		maxQueueDelay, _ := runtime.QueueDelay()
+		maxQueueDelay = maxQueueDelay / 1000
+		if maxQueueDelay >= SbwDropThresh {
+			sbwHandleReqDrop(ops, s, maxQueueDelay)
 			ctx.Cmn.Drop = true
 			s.CompletedSlots.Set(uint32(idx))
 			s.SendCondVar.Signal()
