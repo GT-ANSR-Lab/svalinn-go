@@ -14,9 +14,9 @@ import (
 	"time"
 	"unsafe"
 
-	. "netbench_go/common"
-	. "netbench_go/utils"
-	. "ovldctlgo"
+	. "apps/netbench/common"
+	. "ovldctlrpc"
+	. "utils"
 )
 
 // Constants

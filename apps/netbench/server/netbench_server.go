@@ -10,9 +10,11 @@ import (
 	"strings"
 	"unsafe"
 
-	. "netbench_go/common"
-	. "netbench_go/utils"
-	. "ovldctlgo"
+	. "apps/netbench/common"
+	. "ovldctlrpc"
+	. "utils"
+
+	"msemaphore"
 )
 
 // Constants
@@ -38,7 +40,7 @@ var gCpuBoundWorkers [MaxProcs]*SqrtWorker
 var gMemBoundWorkers [MaxProcs]*MemBWAntagonistWorker
 
 // Memory semaphore
-var gMemSem *MemSemaphoreSimpleImpl
+var gMemSem *msemaphore.MemSemaphore
 
 // Request handler
 func NetbenchReqHandler(ctx *RpcServerCtx) {
@@ -201,7 +203,7 @@ func main() {
 
 	// Create the memory semaphore
 	if UseMsem {
-		gMemSem = NewMemSemaphoreSimpleImpl()
+		gMemSem = msemaphore.GetInstance()
 	}
 
 	// Start the stats server
