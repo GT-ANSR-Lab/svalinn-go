@@ -91,4 +91,13 @@ cmd = "GOROOT_BOOTSTRAP=~/{}/deps/bootstrap/go"\
 print(cmd)
 execute_remote(conns, cmd, True)
 
+# build intel pcm
+print("Building Intel PCM...")
+cmd = "cd ~/{} && git submodule update --init deps/pcm".format(ARTIFACT_PATH)
+execute_remote(conns, cmd, True)
+cmd = "cd ~/{}/deps/pcm && patch -p1 -N < ~/{}/patches/pcm.patch".format(ARTIFACT_PATH, ARTIFACT_PATH)
+execute_remote(conns, cmd, True)
+cmd = "cd ~/{}/deps/pcm && mkdir build && cd build && cmake .. && make PCM_STATIC"
+execute_remote(conns, cmd, True)
+
 print("Done.")

@@ -1,0 +1,97 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1bdc506..db4f63b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -67,7 +67,7 @@ if(UNIX)  # APPLE, LINUX, FREE_BSD
+     set (PCM_COMMON_FLAGS "-Wno-unknown-pragmas -DCMAKE_INSTALL_PREFIX=\"${CMAKE_INSTALL_PREFIX}\"")
+
+     if(LINUX)
+-       set (PCM_COMMON_FLAGS "${PCM_COMMON_FLAGS} -Wextra -DPCM_USE_PERF")
++       set (PCM_COMMON_FLAGS "${PCM_COMMON_FLAGS} -Wextra -DPCM_USE_PCI_MM_LINUX -DPCM_SILENT")
+        if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+          set (PCM_COMMON_FLAGS "${PCM_COMMON_FLAGS} -Wl,-z,now")
+        endif()
+@@ -182,8 +182,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+ add_subdirectory(src)
+-add_subdirectory(examples)
+-add_subdirectory(tests)
++# add_subdirectory(examples)
++# add_subdirectory(tests)
+
+ message(STATUS "Install directory: ${CMAKE_INSTALL_PREFIX}")
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 79458f0..2c3cacb 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -8,4 +8,4 @@ set(PROJECT_NAMES pcm pcm-numa pcm-latency pcm-power pcm-msr pcm-memory pcm-tsx
+
+ set(MINIMUM_OPENSSL_VERSION 1.1.1)
+
+-file(GLOB COMMON_SOURCES pcm-accel-common.cpp msr.cpp cpucounters.cpp pci.cpp mmio.cpp tpmi.cpp pmt.cpp bw.cpp utils.cpp topology.cpp debug.cpp threadpool.cpp uncore_pmu_discovery.cpp pcm-iio-pmu.cpp pcm-iio-topology.cpp lspci.cpp dashboard.cpp ${PCM_PUGIXML_CPP})
++file(GLOB COMMON_SOURCES pcm-accel-common.cpp msr.cpp cpucounters.cpp pci.cpp mmio.cpp tpmi.cpp pmt.cpp bw.cpp utils.cpp topology.cpp debug.cpp threadpool.cpp uncore_pmu_discovery.cpp pcm-iio-pmu.cpp pcm-iio-topology.cpp lspci.cpp dashboard.cpp pcm-c.cpp ${PCM_PUGIXML_CPP})
+
+ if (NOT APPLE)
+   file(GLOB UNIX_SOURCES resctrl.cpp)
+diff --git a/src/pcm-c.cpp b/src/pcm-c.cpp
+new file mode 100644
+index 0000000..e8f9d70
+--- /dev/null
++++ b/src/pcm-c.cpp
+@@ -0,0 +1,54 @@
++#include "cpucounters.h"
++
++using namespace pcm;
++
++extern "C" {
++
++       bool init = false;
++       PCM *p_pcm;
++       ServerUncorePMUs *p_unc;
++
++       uint64_t pcm_c_get_cas_count(uint32 channel)
++       {
++               uint64_t reads = p_unc->getMCCounter(
++                       channel, ServerUncorePMUs::EventPosition::READ);
++               uint64_t writes = p_unc->getMCCounter(
++                       channel, ServerUncorePMUs::EventPosition::WRITE);
++               return reads + writes;
++       }
++
++
++       uint64_t pcm_c_get_max_channel_count(void)
++       {
++               return p_unc->getNumMCChannels();
++       }
++
++       uint64_t pcm_c_get_active_channel_count(void)
++       {
++               uint64_t count = 0;
++               for (uint64_t i = 0; i < p_unc->getNumMCChannels(); i++)
++                       count += pcm_c_get_cas_count(i) != 0;
++               return count;
++       }
++
++       int pcm_c_init(int socket)
++       {
++               if (init) {
++                       return 0;
++               }
++
++               p_pcm = PCM::getInstance();
++               p_unc = new pcm::ServerUncorePMUs(socket, p_pcm);
++               p_unc->program();
++               init = true;
++               return 0;
++       }
++
++       void pcm_c_deinit(void)
++       {
++               if (!init) {
++                       return;
++               }
++               p_pcm->cleanup();
++       }
++}
