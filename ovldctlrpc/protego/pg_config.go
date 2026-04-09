@@ -4,6 +4,7 @@ package protego
 const (
 	SpgLatencyBudget    uint64  = 55
 	SpgCmSlopeThresh    float64 = 0.2
+	SpgCmSlopeInv       uint64  = 4
 	SpgCmUpdateInterval uint64  = 200
 	SpgCmP99Rtt         uint64  = 100
 	SpgRttUs            uint64  = 10

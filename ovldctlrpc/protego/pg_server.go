@@ -504,12 +504,22 @@ func spgIncrCreditPool(ops *SpgOps, delay uint64) uint64 {
 
 func spgUpdateCreditPool(ops *SpgOps) {
 
+	var now uint64
+	var creditUsed uint64
+	var newCp uint64
+	var creditUnused uint64
+	var inCnt uint64
+	var outCnt uint64
+	var lastInCnt uint64
+	var lastOutCnt uint64
+	var tDiff uint64
+
 	if !ops.SpgCmLock.TryLock() {
 		return
 	}
 
-	now := MicroTime()
-	tDiff := now - ops.SpgCmLastUpdate
+	now = MicroTime()
+	tDiff = now - ops.SpgCmLastUpdate
 
 	if tDiff < SpgCmP99Rtt {
 		ops.SpgCmLock.Unlock()
@@ -522,33 +532,45 @@ func spgUpdateCreditPool(ops *SpgOps) {
 
 	ops.SpgCmLastUpdate = now
 
-	creditUsed := AtomicGetUint64(&ops.SpgCreditUsed)
-	newCp := AtomicGetUint64(&ops.SpgCreditPool)
-	inCnt := int64(AtomicGetUint64(&ops.SpgCmInCnt))
-	outCnt := int64(AtomicGetUint64(&ops.SpgCmOutCnt))
-	lastInCnt := int64(AtomicGetUint64(&ops.SpgCmLastInCnt))
-	lastOutCnt := int64(AtomicGetUint64(&ops.SpgCmLastOutCnt))
+	creditUsed = AtomicGetUint64(&ops.SpgCreditUsed)
+	newCp = AtomicGetUint64(&ops.SpgCreditPool)
+	inCnt = int64AtomicGetUint64(&ops.SpgCmInCnt)
+	outCnt = AtomicGetUint64(&ops.SpgCmOutCnt)
+	lastInCnt = AtomicGetUint64(&ops.SpgCmLastInCnt)
+	lastOutCnt = AtomicGetUint64(&ops.SpgCmLastOutCnt)
 
-	inCntDelta := Abs(inCnt - lastInCnt)
-	outCntDelta := Abs(outCnt - lastOutCnt)
-
-	if inCntDelta*outCntDelta > 0 {
-		slope := float64(outCntDelta) / float64(inCntDelta)
-		if slope > SpgCmSlopeThresh {
+	if inCnt == 0 {
+		newCp = spgIncrCreditPool(ops, 0)
+	} else if inCnt >= lastInCnt {
+		// Incr phase
+		if outCnt > lastOutCnt &&
+		   SpgCmSlopeInv * (outCnt - lastOutCnt) >= (inCnt - lastInCnt) &&
+		   creditUsed >= newCp {
 			newCp = spgIncrCreditPool(ops, 0)
 		} else {
 			newCp = spgDecrCreditPool(ops, 0)
 		}
 	} else {
-		newCp = spgDecrCreditPool(ops, 0)
+		// Decr phase
+		if lastOutCnt > outCnt &&
+		   SpgCmSlopeInv * (lastOutCnt - outCnt) >= (lastInCnt - inCnt) &&
+		   creditUsed >= newCp {
+			newCp = spgIncrCreditPool(ops, 0)
+		} else {
+			newCp = spgDecrCreditPool(ops, 0)
+		}
 	}
 
-	creditUnused := newCp - creditUsed
+	if newCp > creditUsed {
+		creditUnused = newCp - creditUsed
+	} else {
+		creditUnused = 0
+	}
 	spgWakeUpDrainedSession(ops, creditUnused)
 	AtomicSetUint64(&ops.SpgCreditPool, newCp)
 
-	AtomicSetUint64(&ops.SpgCmLastInCnt, uint64(inCnt))
-	AtomicSetUint64(&ops.SpgCmLastOutCnt, uint64(outCnt))
+	AtomicSetUint64(&ops.SpgCmLastInCnt, inCnt)
+	AtomicSetUint64(&ops.SpgCmLastOutCnt, outCnt)
 	AtomicSetUint64(&ops.SpgCmInCnt, 0)
 	AtomicSetUint64(&ops.SpgCmOutCnt, 0)
 	AtomicSetUint64(&ops.SpgCmDropCnt, 0)
