@@ -162,6 +162,6 @@ ARTIFACT_PARENT = ""
 ARTIFACT_PATH = ARTIFACT_PARENT
 if ARTIFACT_PATH != "":
     ARTIFACT_PATH += "/"
-ARTIFACT_PATH += "caladan-all-artifact"
+ARTIFACT_PATH += "go-all-artifact"
 
 

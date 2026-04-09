@@ -45,9 +45,9 @@ print("Distributing sources...")
 repo_name = (os.getcwd().split('/'))[-1]
 for server in NODES:
     cmd = "rsync -azh -e \"ssh -i {} -o StrictHostKeyChecking=no"\
-            " -o UserKnownHostsFile=/dev/null\" --info=progress2 --exclude outputs/ ../{}/"\
+            " -o UserKnownHostsFile=/dev/null\" --info=progress2 --exclude outputs/ ../"\
             " {}@{}:~/{}"\
-            .format(KEY_LOCATION, repo_name, USERNAME, server, ARTIFACT_PATH)
+            .format(KEY_LOCATION, USERNAME, server["name"], ARTIFACT_PATH)
     execute_local(cmd)
 
 # install the dependencies
@@ -59,7 +59,7 @@ cmd = "sudo apt -y install meson ninja-build"
 execute_remote(conns, cmd, True)
 
 cmd = "sudo apt-get -y install build-essential libnuma-dev clang autoconf"\
-        " autotools-dev m4 automake libevent-dev  libpcre++-dev libtool"\
+        " autotools-dev m4 automake libevent-dev libtool"\
         " ragel libev-dev moreutils parallel cmake python3 python3-pip"\
         " libjemalloc-dev libaio-dev libdb5.3++-dev numactl hwloc libmnl-dev"\
         " libnl-3-dev libnl-route-3-dev uuid-dev libssl-dev libcunit1-dev pkg-config"\
@@ -79,16 +79,13 @@ cmd = "cd ~/{}/deps && wget https://go.dev/dl/go1.22.7.linux-amd64.tar.gz &&"\
     " mkdir -p bootstrap &&"\
     " tar -C bootstrap -xzf go1.22.7.linux-amd64.tar.gz "\
     .format(ARTIFACT_PATH)
-print(cmd)
 execute_remote(conns, cmd, True)
 
-# XXX: This command needs an update (currently I built manually)
 # build go runtime
 print("Building Go runtime...")
 cmd = "GOROOT_BOOTSTRAP=~/{}/deps/bootstrap/go"\
     " bash -c 'cd ~/{}/go/src && ./make.bash'".\
     format(ARTIFACT_PATH, ARTIFACT_PATH)
-print(cmd)
 execute_remote(conns, cmd, True)
 
 # build intel pcm
@@ -97,7 +94,7 @@ cmd = "cd ~/{} && git submodule update --init deps/pcm".format(ARTIFACT_PATH)
 execute_remote(conns, cmd, True)
 cmd = "cd ~/{}/deps/pcm && patch -p1 -N < ~/{}/patches/pcm.patch".format(ARTIFACT_PATH, ARTIFACT_PATH)
 execute_remote(conns, cmd, True)
-cmd = "cd ~/{}/deps/pcm && mkdir build && cd build && cmake .. && make PCM_STATIC"
+cmd = "cd ~/{}/deps/pcm && mkdir build && cd build && cmake .. && make PCM_STATIC".format(ARTIFACT_PATH)
 execute_remote(conns, cmd, True)
 
 print("Done.")

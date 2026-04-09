@@ -4,7 +4,7 @@ index 1bdc506..db4f63b 100644
 +++ b/CMakeLists.txt
 @@ -67,7 +67,7 @@ if(UNIX)  # APPLE, LINUX, FREE_BSD
      set (PCM_COMMON_FLAGS "-Wno-unknown-pragmas -DCMAKE_INSTALL_PREFIX=\"${CMAKE_INSTALL_PREFIX}\"")
-
+ 
      if(LINUX)
 -       set (PCM_COMMON_FLAGS "${PCM_COMMON_FLAGS} -Wextra -DPCM_USE_PERF")
 +       set (PCM_COMMON_FLAGS "${PCM_COMMON_FLAGS} -Wextra -DPCM_USE_PCI_MM_LINUX -DPCM_SILENT")
@@ -13,31 +13,31 @@ index 1bdc506..db4f63b 100644
         endif()
 @@ -182,8 +182,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-
+ 
  add_subdirectory(src)
 -add_subdirectory(examples)
 -add_subdirectory(tests)
 +# add_subdirectory(examples)
 +# add_subdirectory(tests)
-
+ 
  message(STATUS "Install directory: ${CMAKE_INSTALL_PREFIX}")
-
+ 
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 79458f0..2c3cacb 100644
+index 79458f0..a6e1bcf 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -8,4 +8,4 @@ set(PROJECT_NAMES pcm pcm-numa pcm-latency pcm-power pcm-msr pcm-memory pcm-tsx
-
+@@ -8,7 +8,7 @@ set(PROJECT_NAMES pcm pcm-numa pcm-latency pcm-power pcm-msr pcm-memory pcm-tsx
+ 
  set(MINIMUM_OPENSSL_VERSION 1.1.1)
-
+ 
 -file(GLOB COMMON_SOURCES pcm-accel-common.cpp msr.cpp cpucounters.cpp pci.cpp mmio.cpp tpmi.cpp pmt.cpp bw.cpp utils.cpp topology.cpp debug.cpp threadpool.cpp uncore_pmu_discovery.cpp pcm-iio-pmu.cpp pcm-iio-topology.cpp lspci.cpp dashboard.cpp ${PCM_PUGIXML_CPP})
 +file(GLOB COMMON_SOURCES pcm-accel-common.cpp msr.cpp cpucounters.cpp pci.cpp mmio.cpp tpmi.cpp pmt.cpp bw.cpp utils.cpp topology.cpp debug.cpp threadpool.cpp uncore_pmu_discovery.cpp pcm-iio-pmu.cpp pcm-iio-topology.cpp lspci.cpp dashboard.cpp pcm-c.cpp ${PCM_PUGIXML_CPP})
-
+ 
  if (NOT APPLE)
    file(GLOB UNIX_SOURCES resctrl.cpp)
 diff --git a/src/pcm-c.cpp b/src/pcm-c.cpp
 new file mode 100644
-index 0000000..e8f9d70
+index 0000000..b8dcd5b
 --- /dev/null
 +++ b/src/pcm-c.cpp
 @@ -0,0 +1,54 @@
