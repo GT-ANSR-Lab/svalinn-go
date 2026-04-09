@@ -598,8 +598,8 @@ func spccUpdateCreditPool(ops *SpccOps) {
 		AtomicSetUint64(&ops.SpccGoodOutResps[microExpId], 0)
 		AtomicSetUint64(&ops.SpccDropReqs[microExpId], 0)
 		AtomicSetUint64(&ops.SpccQDelay[microExpId], perf.GetQueueDelayMax() / 1000)
-		ops.SpccMemAccesses[microExpId] = perf.GetMemAccesses()
-		ops.SpccEnergyConsumed[microExpId] = perf.GetEnergyConsumed()
+		ops.SpccMemAccesses[microExpId] = perf.MemPmcGetMemAccesses()
+		ops.SpccEnergyConsumed[microExpId] = perf.PowPmcGetEnergyConsumed()
 
 		// Set the start time for the monitor interval
 		AtomicSetUint64(&ops.SpccStartTs[microExpId], MicroTime())
@@ -616,8 +616,8 @@ func spccUpdateCreditPool(ops *SpccOps) {
 		microExpId = ops.SpccMicroExpId
 
 		// Update any remaining stats
-		ops.SpccMemAccesses[microExpId] = perf.GetMemAccesses() - ops.SpccMemAccesses[microExpId]
-		ops.SpccEnergyConsumed[microExpId] = perf.GetEnergyConsumed() - ops.SpccEnergyConsumed[microExpId]
+		ops.SpccMemAccesses[microExpId] = perf.MemPmcGetMemAccesses() - ops.SpccMemAccesses[microExpId]
+		ops.SpccEnergyConsumed[microExpId] = perf.PowPmcGetEnergyConsumed() - ops.SpccEnergyConsumed[microExpId]
 
 		// Stop the microexperiment
 		ops.SpccMicroExpId = 0
