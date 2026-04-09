@@ -4,6 +4,7 @@ use (
 	./apps
 	./msemaphore
 	./ovldctlrpc
+	./perf
 	./pmc_mod
 	./utils
 )

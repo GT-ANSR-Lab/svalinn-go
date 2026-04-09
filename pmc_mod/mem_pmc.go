@@ -6,29 +6,30 @@ package pmc
 */
 import "C"
 
-// Thin cgo wrappers over the memory PMC C API. These are package-private;
-// the public, cached API lives in pmc.go.
+// Thin cgo wrappers over the memory PMC C API. These are exported so that
+// higher-level packages (e.g. perf) can build cached, no-cgo read paths on
+// top of them. End-user code should prefer the perf package.
 
-func cMemPmcInit() {
+func MemPmcInit() {
 	C.MemPmc_Init()
 }
 
-func cMemPmcGetMaxMemChan() uint64 {
+func MemPmcGetMaxMemChan() uint64 {
 	return uint64(C.MemPmc_GetMaxMemChan())
 }
 
-func cMemPmcGetActiveMemChan() uint64 {
+func MemPmcGetActiveMemChan() uint64 {
 	return uint64(C.MemPmc_GetActiveMemChan())
 }
 
-func cMemPmcGetMemChanAccesses(chann int) uint64 {
+func MemPmcGetMemChanAccesses(chann int) uint64 {
 	return uint64(C.MemPmc_GetMemChanAccesses(C.int(chann)))
 }
 
-func cMemPmcGetMemAccesses() uint64 {
+func MemPmcGetMemAccesses() uint64 {
 	return uint64(C.MemPmc_GetMemAccesses())
 }
 
-func cMemPmcDeInit() {
+func MemPmcDeInit() {
 	C.MemPmc_DeInit()
 }
