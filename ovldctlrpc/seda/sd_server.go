@@ -175,14 +175,14 @@ func ssdWorker(ops *SsdOps, s *SsdSession, c *SsdCtx) {
 	c.Cmn.Drop = false
 	ops.SsdHandler(c.Cmn)
 
+	if c.Cmn.Drop {
+		AtomicAddUint64(&ops.SsdStatReqDropped, 1)
+	}
+
 	s.Lock.Lock()
 	s.CompletedSlots.Set(uint32(c.Cmn.Idx))
 	s.SendCondVar.Signal()
 	s.Lock.Unlock()
-
-	if c.Cmn.Drop {
-		AtomicAddUint64(&ops.SsdStatReqDropped, 1)
-	}
 }
 
 func ssdRecvOne(ops *SsdOps, s *SsdSession) int {

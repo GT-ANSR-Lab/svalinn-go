@@ -177,14 +177,14 @@ func sncWorker(ops *SncOps, s *SncSession, c *SncCtx) {
 	c.Cmn.Drop = false
 	ops.SncHandler(c.Cmn)
 
+	if c.Cmn.Drop {
+		AtomicAddUint64(&ops.SncStatReqDropped, 1)
+	}
+
 	s.Lock.Lock()
 	s.CompletedSlots.Set(uint32(c.Cmn.Idx))
 	s.SendCondVar.Signal()
 	s.Lock.Unlock()
-
-	if c.Cmn.Drop {
-		AtomicAddUint64(&ops.SncStatReqDropped, 1)
-	}
 }
 
 func sncRecvOne(ops *SncOps, s *SncSession) int {
