@@ -26,6 +26,8 @@ const (
 	RpcBreakwaterOps
 	// Protego
 	RpcProtegoOps
+	// Pcc
+	RpcPccOps
 )
 
 // The maximum request and response buffer size
@@ -43,6 +45,8 @@ var sbwOps breakwater.SbwOps
 var cbwOps breakwater.CbwOps
 var spgOps protego.SpgOps
 var cpgOps protego.CpgOps
+var spccOps pcc.SpccOps
+var cpccOps pcc.CpccOps
 
 /**
  * Server API
@@ -89,6 +93,8 @@ func NewRpcServer(opsType RpcOpsType) *RpcServer {
 		s.ops = &sbwOps
 	case RpcProtegoOps:
 		s.ops = &spgOps
+	case RpcPccOps:
+		s.ops = &spccOps
 	default:
 		fmt.Println("Invalid RPC ops")
 		return nil
@@ -186,6 +192,8 @@ func NewRpcClient(
 		c.ops = &cbwOps
 	case RpcProtegoOps:
 		c.ops = &cpgOps
+	case RpcPccOps:
+		c.ops = &cpccOps
 	default:
 		fmt.Println("Invalid RPC ops")
 		return nil, -1
