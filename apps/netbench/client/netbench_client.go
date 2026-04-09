@@ -22,7 +22,7 @@ import (
 // Constants
 const (
 	StatPort         int = 8002
-	WarmUpTimeUs     int = 2000000
+	WarmUpTimeUs     int = 10000000
 	MaxCatchUpTimeUs int = 5000
 )
 
@@ -802,7 +802,7 @@ func main() {
 	var (
 		// Settings common to any load generator client
 		serverIP    = flag.String("server", "127.0.0.1", "Server IP address")
-		ovldCtlAlgo = flag.String("ovldctlalgo", "nocontrol", "Overload control algorithm (e.g., nocontrol, breakwater, protego, pcc)")
+		ovldCtlAlgo = flag.String("ovldctlalgo", "nocontrol", "Overload control algorithm (e.g., nocontrol, seda, breakwater, protego, pcc)")
 		numConns    = flag.Int("connections", 100, "Number of connections")
 		numAgents   = flag.Int("agents", 1, "Number of clients/agents")
 		slo         = flag.Int("slo", 1000, "SLO (Service Level Objective) in us")
@@ -833,6 +833,8 @@ func main() {
 		gSettings.ServerIP = *serverIP
 		if *ovldCtlAlgo == "nocontrol" {
 			gSettings.OvldCtlAlgo = RpcNoControlOps
+		} else if *ovldCtlAlgo == "seda" {
+			gSettings.OvldCtlAlgo = RpcSedaOps
 		} else if *ovldCtlAlgo == "breakwater" {
 			gSettings.OvldCtlAlgo = RpcBreakwaterOps
 		} else if *ovldCtlAlgo == "protego" {

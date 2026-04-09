@@ -183,6 +183,8 @@ func main() {
 	// Interpret and Validate the arguments
 	if *ovldCtlAlgo == "nocontrol" {
 		gSettings.ovldCtlAlgo = RpcNoControlOps
+	} else if *ovldCtlAlgo == "seda" {
+		gSettings.ovldCtlAlgo = RpcSedaOps
 	} else if *ovldCtlAlgo == "breakwater" {
 		gSettings.ovldCtlAlgo = RpcBreakwaterOps
 	} else if *ovldCtlAlgo == "protego" {

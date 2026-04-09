@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"net"
 
-	"ovldctlrpc/breakwater"
 	"ovldctlrpc/common"
 	"ovldctlrpc/nocontrol"
+	"ovldctlrpc/seda"
+	"ovldctlrpc/breakwater"
 	"ovldctlrpc/protego"
 	"ovldctlrpc/pcc"
 
@@ -23,6 +24,8 @@ type RpcOpsType uint8
 const (
 	// No overload control
 	RpcNoControlOps RpcOpsType = iota
+	// Seda
+	RpcSedaOps
 	// Breakwater
 	RpcBreakwaterOps
 	// Protego
@@ -42,6 +45,8 @@ const (
 // server and client ops, as per the given configuration.
 var sncOps nocontrol.SncOps
 var cncOps nocontrol.CncOps
+var ssdOps seda.SsdOps
+var csdOps seda.CsdOps
 var sbwOps breakwater.SbwOps
 var cbwOps breakwater.CbwOps
 var spgOps protego.SpgOps
@@ -90,6 +95,8 @@ func NewRpcServer(opsType RpcOpsType) *RpcServer {
 	switch opsType {
 	case RpcNoControlOps:
 		s.ops = &sncOps
+	case RpcSedaOps:
+		s.ops = &ssdOps
 	case RpcBreakwaterOps:
 		s.ops = &sbwOps
 	case RpcProtegoOps:
@@ -189,6 +196,8 @@ func NewRpcClient(
 	switch opsType {
 	case RpcNoControlOps:
 		c.ops = &cncOps
+	case RpcSedaOps:
+		c.ops = &csdOps
 	case RpcBreakwaterOps:
 		c.ops = &cbwOps
 	case RpcProtegoOps:

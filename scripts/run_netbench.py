@@ -15,7 +15,7 @@ import pandas as pd
 ################################
 
 # Overload controller settings
-OVERLOAD_ALG = "nocontrol"
+OVERLOAD_ALG = "protego"
 
 # Total number of client connections
 NUM_CONNS = 100
@@ -25,8 +25,8 @@ NUM_CLIENTS = len(CLIENTS)
 NUM_AGENTS = len(AGENTS)
 
 # List of offered load
-NUM_SAMPLES = 1
-MAX_OFFERED_LOAD = 10000
+NUM_SAMPLES = 10
+MAX_OFFERED_LOAD = 1000000
 OFFERED_LOADS = [int((i+1) * (MAX_OFFERED_LOAD/NUM_SAMPLES)) for i in range(NUM_SAMPLES)]
 
 # Network RTT on the testbed
@@ -39,7 +39,7 @@ MEM_BOUND_WORK_ITR = 100
 CPU_BOUND_REQ_PCNT = 80
 
 # Duration of a single test case (i.e., one offered load sample)
-DURATION_SEC = 10
+DURATION_SEC = 30
 
 # Provides the opportunity to replace the files in all the machines
 # Helps in testing quickly by updating the required files
@@ -95,6 +95,10 @@ print("Distributing configs...")
 for node in NODES:
     cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no ./ovld_configs/nc_config.go"\
           " {}@{}:~/{}/ovldctlrpc/nocontrol/ >/dev/null"\
+          .format(KEY_LOCATION, USERNAME, node["name"], ARTIFACT_PATH)
+    execute_local(cmd)
+    cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no ./ovld_configs/sd_config.go"\
+          " {}@{}:~/{}/ovldctlrpc/seda/ >/dev/null"\
           .format(KEY_LOCATION, USERNAME, node["name"], ARTIFACT_PATH)
     execute_local(cmd)
     cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no ./ovld_configs/bw_config.go"\
