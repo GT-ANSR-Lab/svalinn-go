@@ -28,7 +28,7 @@ var (
 	instance     *MemSemaphore
 	instanceOnce sync.Once
 )
-g
+
 // GetInstance returns a reference to the singleton MemSemaphore.
 func GetInstance() *MemSemaphore {
 	instanceOnce.Do(func() {
