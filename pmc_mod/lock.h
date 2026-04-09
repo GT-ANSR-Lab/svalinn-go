@@ -4,7 +4,20 @@
 
 #pragma once
 
+#include <features.h>
 #include <assert.h>
+#include <stdbool.h>
+
+static inline void cpu_relax(void)
+{
+#if __GNUC_PREREQ(10, 0)
+#  if __has_builtin(__builtin_ia32_pause)
+	__builtin_ia32_pause();
+#  endif
+#else
+	asm volatile("pause");
+#endif
+}
 
 typedef struct {
 	volatile int locked;

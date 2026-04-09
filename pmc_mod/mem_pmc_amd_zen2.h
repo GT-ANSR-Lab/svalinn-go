@@ -12,7 +12,7 @@ extern MemPmcOps mem_pmc_amd_zen2_ops;
 
 typedef struct MemPmcAmdZen2State {
     /* PMU device info */
-    long             m_pmu_type;
+    uint32_t         m_pmu_type;
     int              m_pmu_cpu;
     /* Per-channel perf device file descriptor */
     int              m_chan_fd[MAX_NUM_MEM_CH];

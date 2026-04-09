@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -48,7 +49,10 @@ static int GetRaplPmuType(uint32_t *type) {
     }
 
     *type = 0;
-    fscanf(f, "%u", type);
+    if (fscanf(f, "%u", type) != 1) {
+        fclose(f);
+        return -1;
+    }
     fclose(f);
     return 0;
 }
@@ -105,9 +109,11 @@ static int GetRaplEventConfig(const char* event_name, uint64_t *config) {
     }
 
     *config = 0;
-    fscanf(f, "event=0x%lx", config);
+    if (fscanf(f, "event=0x%lx", config) != 1) {
+        fclose(f);
+        return -1;
+    }
     fclose(f);
-
 	return 0;
 }
 
@@ -125,9 +131,11 @@ static int GetRaplScale(const char* event_name, double *scale) {
     }
 
     *scale = 1.0;
-    fscanf(f, "%lf", scale);
+    if (fscanf(f, "%lf", scale) != 1) {
+        fclose(f);
+        return -1;
+    }
     fclose(f);
-
 	return 0;
 }
 

@@ -1,6 +1,8 @@
 package pmc
 
 /*
+#cgo CFLAGS: -O3
+#cgo LDFLAGS: -lnuma -lm
 #include "pow_pmc.h"
 */
 import "C"

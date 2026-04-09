@@ -1,6 +1,8 @@
 package pmc
 
 /*
+#cgo CFLAGS: -O3
+#cgo LDFLAGS: ${SRCDIR}/../deps/pcm/build/src/libpcm.a -lstdc++ -lnuma -lm
 #include <stdint.h>
 #include "mem_pmc.h"
 */

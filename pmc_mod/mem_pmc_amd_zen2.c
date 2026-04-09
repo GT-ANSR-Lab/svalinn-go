@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -62,7 +63,10 @@ static int GetAmdDfPmuType(uint32_t *type) {
     }
 
     *type = 0;
-    fscanf(f, "%u", type);
+    if (fscanf(f, "%u", type) != 1) {
+        fclose(f);
+        return -1;
+    }
     fclose(f);
     return 0;
 }

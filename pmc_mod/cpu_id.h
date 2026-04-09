@@ -1,6 +1,7 @@
 #ifndef __CPU_ID_H__
 #define __CPU_ID_H__
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef struct CpuIdInfo {
