@@ -61,8 +61,18 @@ func sncPutSlot(ops *SncOps, s *SncSession, slot int) {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
 
-	ops.SrpcCtxPool.Put(s.Slots[slot].Cmn)
-	ops.SncCtxPool.Put(s.Slots[slot])
+	// Break cyclic references before returning the objects to their pools.
+	// Without this, each pool entry would keep its paired object reachable
+	// (and transitively its SrpcSession / big ReqBuf+RespBuf), pinning memory
+	// until both pool slots are re-issued.
+	c := s.Slots[slot]
+	cmn := c.Cmn
+	cmn.Ext = nil
+	cmn.S = nil
+	c.Cmn = nil
+
+	ops.SrpcCtxPool.Put(cmn)
+	ops.SncCtxPool.Put(c)
 	s.Slots[slot] = nil
 	s.AvailSlots.Set(uint32(slot))
 }
@@ -305,6 +315,13 @@ func sncServer(ops *SncOps, conn *net.TCPConn) {
 	// Cleanup
 	AtomicSubUint64(&ops.SncNumSess, 1)
 	s.SendWaiter.Wait()
+
+	// Break the SrpcSession <-> SncSession cycle. Both objects become
+	// unreachable when this function returns, but clearing the cross-links
+	// ensures the GC can collect them independently and turns any stale
+	// access into a nil-panic instead of silent garbage.
+	s.Cmn.Ext = nil
+	s.Cmn = nil
 }
 
 func sncListener(ops *SncOps, listenWaiter *sync.WaitGroup) {

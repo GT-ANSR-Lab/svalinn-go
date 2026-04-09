@@ -223,10 +223,26 @@ func (ops *CncOps) CrpcOpen(
 func (ops *CncOps) CrpcClose(s *CrpcSession) {
 	ss := s.Ext.(*CncSession)
 
+	// Break the CrpcConn <-> CncConn cycle (and CncConn -> CncSession back-ref)
+	// before dropping the references. Cycles aren't a leak in Go, but clearing
+	// them ensures that a goroutine still holding a *CrpcConn (e.g. blocked in
+	// CrpcRecvOne) can't resurrect stale specialized/session state via .Ext.
 	for i := 0; i < ss.Cmn.NConns; i++ {
-		ss.Cmn.C[i].C.Close()
+		c := ss.Cmn.C[i]
+		cc := c.Ext.(*CncConn)
+		c.C.Close()
+		cc.Cmn = nil
+		cc.Session = nil
+		c.Ext = nil
 		ss.Cmn.C[i] = nil
 	}
+
+	// Break the CrpcSession <-> CncSession cycle. After this point the
+	// caller's *CrpcSession handle is dead; any further access via either
+	// side's back-pointer will nil-panic instead of silently touching
+	// freed state.
+	s.Ext = nil
+	ss.Cmn = nil
 }
 
 func (ops *CncOps) CrpcCredit(s *CrpcSession) uint64 {

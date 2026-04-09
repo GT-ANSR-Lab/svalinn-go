@@ -91,8 +91,18 @@ func sbwPutSlot(ops *SbwOps, s *SbwSession, slot int) {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
 
-	ops.SrpcCtxPool.Put(s.Slots[slot].Cmn)
-	ops.SbwCtxPool.Put(s.Slots[slot])
+	// Break cyclic references before returning the objects to their pools.
+	// Without this, each pool entry would keep its paired object reachable
+	// (and transitively its SrpcSession / big ReqBuf+RespBuf), pinning memory
+	// until both pool slots are re-issued.
+	c := s.Slots[slot]
+	cmn := c.Cmn
+	cmn.Ext = nil
+	cmn.S = nil
+	c.Cmn = nil
+
+	ops.SrpcCtxPool.Put(cmn)
+	ops.SbwCtxPool.Put(c)
 	s.Slots[slot] = nil
 	s.AvailSlots.Set(uint32(slot))
 }
@@ -759,6 +769,13 @@ func sbwServer(ops *SbwOps, conn *net.TCPConn) {
 		ops.SbwLastCpUpdate = MicroTime()
 		AtomicSetUint64(&ops.SbwCreditDs, 0)
 	}
+
+	// Break the SrpcSession <-> SbwSession cycle. Both objects become
+	// unreachable when this function returns, but clearing the cross-links
+	// ensures the GC can collect them independently and turns any stale
+	// access into a nil-panic instead of silent garbage.
+	s.Cmn.Ext = nil
+	s.Cmn = nil
 }
 
 func sbwListener(ops *SbwOps, listenWaiter *sync.WaitGroup) {

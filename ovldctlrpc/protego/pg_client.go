@@ -538,9 +538,18 @@ func (ops *CpgOps) CrpcClose(s *CrpcSession) {
 	// Wait for the timer to exit
 	ss.TimerWaiter.Wait()
 
-	// Free the connections
+	// Free the connections. Break the CrpcConn <-> CpgConn cycle (and
+	// CpgConn -> CpgSession back-ref) before dropping references. Cycles
+	// aren't a leak in Go, but clearing them ensures a goroutine still
+	// holding a *CrpcConn (e.g. blocked in CrpcRecvOne) can't resurrect
+	// stale specialized/session state via .Ext.
 	for i := 0; i < ss.Cmn.NConns; i++ {
-		ss.Cmn.C[i].C.Close()
+		c := ss.Cmn.C[i]
+		cc := c.Ext.(*CpgConn)
+		c.C.Close()
+		cc.Cmn = nil
+		cc.Session = nil
+		c.Ext = nil
 		ss.Cmn.C[i] = nil
 	}
 
@@ -548,6 +557,12 @@ func (ops *CpgOps) CrpcClose(s *CrpcSession) {
 	for i := 0; i < CrpcQlen; i++ {
 		ss.QReq[i] = nil
 	}
+
+	// Break the CrpcSession <-> CpgSession cycle. Safe to do here because
+	// the timer goroutine has already exited (TimerWaiter.Wait above) and
+	// no further user-visible access should occur via either back-pointer.
+	s.Ext = nil
+	ss.Cmn = nil
 }
 
 func (ops *CpgOps) CrpcCredit(s *CrpcSession) uint64 {
