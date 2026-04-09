@@ -15,7 +15,7 @@ import pandas as pd
 ################################
 
 # Overload controller settings
-OVERLOAD_ALG = "protego"
+OVERLOAD_ALG = "nocontrol"
 
 # Total number of client connections
 NUM_CONNS = 100
@@ -25,13 +25,13 @@ NUM_CLIENTS = len(CLIENTS)
 NUM_AGENTS = len(AGENTS)
 
 # List of offered load
-NUM_SAMPLES = 20
-MAX_OFFERED_LOAD = 1500000
+NUM_SAMPLES = 1
+MAX_OFFERED_LOAD = 10000
 OFFERED_LOADS = [int((i+1) * (MAX_OFFERED_LOAD/NUM_SAMPLES)) for i in range(NUM_SAMPLES)]
 
 # Network RTT on the testbed
 NET_RTT = 10
-SLO = 110
+SLO = 400
 
 # Netbench settings
 CPU_BOUND_WORK_ITR = 5000
@@ -94,16 +94,20 @@ sleep(1)
 print("Distributing configs...")
 for node in NODES:
     cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no ./ovld_configs/nc_config.go"\
-          " {}@{}:~/{}/ovld-ctl-go/nocontrol/ >/dev/null"\
-          .format(KEY_LOCATION, USERNAME, node, ARTIFACT_PATH)
+          " {}@{}:~/{}/ovldctlrpc/nocontrol/ >/dev/null"\
+          .format(KEY_LOCATION, USERNAME, node["name"], ARTIFACT_PATH)
     execute_local(cmd)
     cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no ./ovld_configs/bw_config.go"\
-          " {}@{}:~/{}/ovld-ctl-go/breakwater/ >/dev/null"\
-          .format(KEY_LOCATION, USERNAME, node, ARTIFACT_PATH)
+          " {}@{}:~/{}/ovldctlrpc/breakwater/ >/dev/null"\
+          .format(KEY_LOCATION, USERNAME, node["name"], ARTIFACT_PATH)
     execute_local(cmd)
     cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no ./ovld_configs/pg_config.go"\
-          " {}@{}:~/{}/ovld-ctl-go/protego/ >/dev/null"\
-          .format(KEY_LOCATION, USERNAME, node, ARTIFACT_PATH)
+          " {}@{}:~/{}/ovldctlrpc/protego/ >/dev/null"\
+          .format(KEY_LOCATION, USERNAME, node["name"], ARTIFACT_PATH)
+    execute_local(cmd)
+    cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no ./ovld_configs/pcc_config.go"\
+          " {}@{}:~/{}/ovldctlrpc/pcc/ >/dev/null"\
+          .format(KEY_LOCATION, USERNAME, node["name"], ARTIFACT_PATH)
     execute_local(cmd)
 
 # Replace the frequently updated files
@@ -113,19 +117,19 @@ for fil in FILES_TO_REPLACE:
         cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no ./{}"\
               " {}@{}:~/{}/{} >/dev/null"\
               .format(KEY_LOCATION, fil["src"], USERNAME,
-                      node, ARTIFACT_PATH, fil["dst"])
+                      node["name"], ARTIFACT_PATH, fil["dst"])
         execute_local(cmd)
 
 # Rebuild Go runtime
 print("Building Go runtime...")
 cmd = "GOROOT_BOOTSTRAP=~/{}/deps/bootstrap/go"\
-    " bash -c 'cd ~/{}/go && ./make.bash'".\
+    " bash -c 'cd ~/{}/go/src && ./make.bash'".\
     format(ARTIFACT_PATH, ARTIFACT_PATH)
 execute_remote([server_conn, client_conn] + agent_conns, cmd, True)
 
 # Build netbench
 print("Building netbench...")
-cmd = "cd ~/{}/ && make clean && make all"\
+cmd = "cd ~/{}/apps/netbench && make clean && make all"\
         .format(ARTIFACT_PATH)
 execute_remote([server_conn, client_conn] + agent_conns, cmd, True)
 
@@ -151,7 +155,7 @@ for offered_load in OFFERED_LOADS:
     print("\tStarting netbench server...")
     cmd = "cd ~/{} && GOMAXPROCS={}"\
         " sudo -E numactl --cpunodebind={} --membind={}"\
-        " ./build/netbench_server --ovldctlalgo {}"\
+        " ./apps/netbench/build/netbench_server --ovldctlalgo {}"\
         " >stdout.out 2>&1".\
         format(ARTIFACT_PATH, SERVERS[0]["cores"], SERVERS[0]["numa"],
                SERVERS[0]["numa"], OVERLOAD_ALG)
@@ -163,7 +167,7 @@ for offered_load in OFFERED_LOADS:
     client_agent_sessions = []
     cmd = "cd ~/{} && GOMAXPROCS={}"\
         " sudo -E numactl --cpunodebind={} --membind={}"\
-        " ./build/netbench_client --clienttype client --server {}"\
+        " ./apps/netbench/build/netbench_client --clienttype client --server {}"\
         " --ovldctlalgo {} --connections {} --agents {} --slo {} --load {}"\
         " --duration {} --cpuiters {} --memiters {} --cpuperc {}"\
         " >stdout.out 2>&1"\
@@ -179,7 +183,7 @@ for offered_load in OFFERED_LOADS:
     for i in range(len(AGENTS)):
         cmd = "cd ~/{} && GOMAXPROCS={}"\
             " sudo -E numactl --cpunodebind={} --membind={}"\
-            " ./build/netbench_client --clienttype agent --master {}"\
+            " ./apps/netbench/build/netbench_client --clienttype agent --master {}"\
             " >stdout.out 2>&1"\
             .format(ARTIFACT_PATH, AGENTS[i]["cores"], AGENTS[i]["numa"],
                     AGENTS[i]["numa"], CLIENT["ip"])
@@ -234,6 +238,7 @@ cmd = "rsync -azh --info=progress2 -e \"ssh -i {} -o StrictHostKeyChecking=no -o
 execute_local(cmd)
 
 # Collect the config used by this test run
+run_config = ""
 run_config += "overload algorithm: {}\n".format(OVERLOAD_ALG)
 run_config += "number of nodes: {}\n".format(len(NODES))
 run_config += "number of client nodes: {}\n".format(len(CLIENTS))
