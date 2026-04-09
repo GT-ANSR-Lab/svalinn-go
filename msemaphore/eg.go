@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"sync"
 
-	"pmc"
+	"perf"
 	"utils"
 )
 
@@ -44,9 +44,9 @@ type memSemaphoreMabEgImpl struct {
 }
 
 func newMemSemaphoreMabEgImpl(maxCap, initCap uint32) *memSemaphoreMabEgImpl {
-	// The PMC subsystem must be running for the controller to read memory
+	// The perf subsystem must be running for the controller to read memory
 	// bandwidth. Init is a no-op if already initialized.
-	pmc.PmcInit()
+	perf.PerfInit()
 
 	m := &memSemaphoreMabEgImpl{
 		cap:         initCap,
@@ -54,7 +54,7 @@ func newMemSemaphoreMabEgImpl(maxCap, initCap uint32) *memSemaphoreMabEgImpl {
 		ewmaRewards: make([]float64, maxCap+1),
 	}
 	m.waiters.init()
-	m.lastBytes = pmc.MemPmcGetMemAccesses()
+	m.lastBytes = perf.MemPmcGetMemAccesses()
 	m.lastTime = utils.MicroTime()
 	return m
 }
@@ -66,7 +66,7 @@ func (m *memSemaphoreMabEgImpl) updateCapacity() {
 		return
 	}
 
-	nowBytes := pmc.MemPmcGetMemAccesses()
+	nowBytes := perf.MemPmcGetMemAccesses()
 	membw := float64(nowBytes-m.lastBytes) / float64(now-m.lastTime)
 
 	if membw > m.maxMembw {

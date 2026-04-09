@@ -9,6 +9,8 @@ import (
 	. "ovldctlrpc/common"
 	. "utils"
 
+	"perf"
+
 	"github.com/kelindar/bitmap"
 )
 
@@ -516,7 +518,7 @@ func sbwUpdateCreditPool(ops *SbwOps) {
 	newCp := AtomicGetUint64(&ops.SbwCreditPool)
 	creditUsed := AtomicGetUint64(&ops.SbwCreditUsed)
 
-	maxQueueDelay, _ := runtime.QueueDelay()
+	maxQueueDelay := perf.GetQueueDelayMax()
 	maxQueueDelay /= 1000
 	if maxQueueDelay >= SbwDelayTarget {
 		newCp = sbwDecrCreditPool(ops, maxQueueDelay)
@@ -626,7 +628,7 @@ again:
 		AtomicAddUint64(&ops.SbwNumPending, 1)
 
 		// Perform AQM
-		maxQueueDelay, _ := runtime.QueueDelay()
+		maxQueueDelay := perf.GetQueueDelayMax()
 		maxQueueDelay = maxQueueDelay / 1000
 		if maxQueueDelay >= SbwDropThresh {
 			sbwHandleReqDrop(ops, s, maxQueueDelay)

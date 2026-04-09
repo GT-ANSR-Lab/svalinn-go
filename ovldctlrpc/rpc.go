@@ -8,6 +8,8 @@ import (
 	"ovldctlrpc/common"
 	"ovldctlrpc/nocontrol"
 	"ovldctlrpc/protego"
+
+	"perf"
 )
 
 /**
@@ -69,6 +71,12 @@ type RpcServer struct {
 
 // Constructor for RPC server
 func NewRpcServer(opsType RpcOpsType) *RpcServer {
+
+	// Start the perf subsystem so that queueing-delay (and any other perf
+	// counters the server algorithms rely on) are refreshed in the
+	// background. This is a no-op if already initialized, and replaces
+	// any direct use of runtime.QueueDelay on the hot path.
+	perf.PerfInit()
 
 	// Create the RPC server object
 	s := &RpcServer{}

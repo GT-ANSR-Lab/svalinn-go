@@ -3,11 +3,11 @@ module msemaphore
 go 1.25.3
 
 require (
-	pmc v0.0.0
+	perf v0.0.0
 	utils v0.0.0
 )
 
 replace (
-	pmc => ../pmc_mod
+	perf => ../perf
 	utils => ../utils
 )

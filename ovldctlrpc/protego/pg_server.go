@@ -9,6 +9,8 @@ import (
 	. "ovldctlrpc/common"
 	. "utils"
 
+	"perf"
+
 	"github.com/kelindar/bitmap"
 )
 
@@ -651,7 +653,7 @@ again:
 		AtomicAddUint64(&ops.SpgCmInCnt, 1)
 
 		// Perform AQM
-		maxQueueDelay, _ := runtime.QueueDelay()
+		maxQueueDelay := perf.GetQueueDelayMax()
 		maxQueueDelay = maxQueueDelay / 1000
 		if maxQueueDelay >= SpgLatencyBudget {
 			spgHandleReqDrop(ops, s, maxQueueDelay)

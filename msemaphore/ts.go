@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"sync"
 
-	"pmc"
+	"perf"
 	"utils"
 )
 
@@ -63,7 +63,7 @@ type memSemaphoreMabTsImpl struct {
 }
 
 func newMemSemaphoreMabTsImpl(maxCap, initCap uint32) *memSemaphoreMabTsImpl {
-	pmc.PmcInit()
+	perf.PerfInit()
 
 	m := &memSemaphoreMabTsImpl{
 		cap:          initCap,
@@ -84,7 +84,7 @@ func newMemSemaphoreMabTsImpl(maxCap, initCap uint32) *memSemaphoreMabTsImpl {
 		m.stdDevs[i] = math.Sqrt(tsSigma0Sq)
 	}
 	m.waiters.init()
-	m.lastBytes = pmc.MemPmcGetMemAccesses()
+	m.lastBytes = perf.MemPmcGetMemAccesses()
 	m.lastTime = utils.MicroTime()
 	return m
 }
@@ -96,7 +96,7 @@ func (m *memSemaphoreMabTsImpl) updateCapacity() {
 		return
 	}
 
-	nowBytes := pmc.MemPmcGetMemAccesses()
+	nowBytes := perf.MemPmcGetMemAccesses()
 	membw := float64(nowBytes-m.lastBytes) / float64(now-m.lastTime)
 
 	if membw > m.maxMembw {

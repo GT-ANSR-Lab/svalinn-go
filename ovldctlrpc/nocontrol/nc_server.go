@@ -9,6 +9,8 @@ import (
 	. "ovldctlrpc/common"
 	. "utils"
 
+	"perf"
+
 	"github.com/kelindar/bitmap"
 )
 
@@ -233,7 +235,7 @@ again:
 		s.NumPending++
 		if SncAqmOn {
 			// Get the runtime queueing delay
-			maxQueueDelay, _ := runtime.QueueDelay()
+			maxQueueDelay := perf.GetQueueDelayMax()
 			maxQueueDelay = maxQueueDelay / 1000
 			// Check if we need to drop the request
 			if maxQueueDelay >= SncAqmThresh {
