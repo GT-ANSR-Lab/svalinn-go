@@ -265,7 +265,7 @@ func sbwSender(ops *SbwOps, s *SbwSession) {
 		oldCredit := s.Credit
 		sbwUpdateCredit(ops, s, reqDropped)
 		credit := s.Credit
-		creditIssued := Max(0, credit-oldCredit-numResp)
+		creditIssued := Max(0, credit-oldCredit+numResp)
 		AtomicAddUint64(&ops.SbwStatCreditTx, uint64(creditIssued))
 
 		sendECredit := (s.NeedECredit || s.WakeUp) &&
@@ -526,7 +526,13 @@ func sbwUpdateCreditPool(ops *SbwOps) {
 		newCp = sbwIncrCreditPool(ops, maxQueueDelay)
 	}
 
-	creditUnused := newCp - creditUsed
+	// newCp may have been decreased below creditUsed; avoid uint64 underflow
+	var creditUnused uint64
+	if newCp > creditUsed {
+		creditUnused = newCp - creditUsed
+	} else {
+		creditUnused = 0
+	}
 	sbwWakeUpDrainedSession(ops, creditUnused)
 	AtomicSetUint64(&ops.SbwCreditPool, newCp)
 }

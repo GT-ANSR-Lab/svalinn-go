@@ -64,7 +64,7 @@ func cpccSendCUpdate(ops *CpccOps, cc *CpccConn) int {
 		Op:     PccOpCredit,
 		Id:     0,
 		Len:    0,
-		Demand: uint64(s.Head) - uint64(s.Tail),
+		Demand: uint64(s.Head - s.Tail),
 		Flags:  0,
 	}
 
@@ -90,7 +90,7 @@ func cpccSendRaw(ops *CpccOps, cc *CpccConn, buf []byte, len uint64, id uint64) 
 		Op:     PccOpCall,
 		Id:     id,
 		Len:    len,
-		Demand: uint64(s.Head) - uint64(s.Tail),
+		Demand: uint64(s.Head - s.Tail),
 		TsSent: MicroTime(),
 		Flags:  0,
 	}
@@ -138,7 +138,7 @@ func cpccSendRequestVector(ops *CpccOps, cc *CpccConn) int {
 			Op:     PccOpCall,
 			Id:     c.Id,
 			Len:    c.Len,
-			Demand: uint64(s.Head) - uint64(s.Tail),
+			Demand: uint64(s.Head - s.Tail),
 			TsSent: now,
 			Flags:  0,
 		}

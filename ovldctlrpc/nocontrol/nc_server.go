@@ -3,7 +3,6 @@ package nocontrol
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"sync"
 
 	. "ovldctlrpc/common"
@@ -233,6 +232,7 @@ again:
 		// Update stats
 		s.Lock.Lock()
 		s.NumPending++
+		AtomicAddUint64(&ops.SncNumPending, 1)
 		if SncAqmOn {
 			// Get the runtime queueing delay
 			maxQueueDelay := perf.GetQueueDelayMax()
@@ -248,7 +248,6 @@ again:
 			}
 		}
 		s.Lock.Unlock()
-		AtomicAddUint64(&ops.SncNumPending, 1)
 
 		// Spawn the worker to handle the request
 		go sncWorker(ops, s, ctx)

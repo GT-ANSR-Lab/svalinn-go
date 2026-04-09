@@ -64,7 +64,7 @@ func cbwSendCUpdate(ops *CbwOps, cc *CbwConn) int {
 		Op:     BwOpCredit,
 		Id:     0,
 		Len:    0,
-		Demand: uint64(s.Head) - uint64(s.Tail),
+		Demand: uint64(s.Head - s.Tail),
 		Flags:  0,
 	}
 
@@ -90,7 +90,7 @@ func cbwSendRaw(ops *CbwOps, cc *CbwConn, buf []byte, len uint64, id uint64) int
 		Op:     BwOpCall,
 		Id:     id,
 		Len:    len,
-		Demand: uint64(s.Head) - uint64(s.Tail),
+		Demand: uint64(s.Head - s.Tail),
 		TsSent: MicroTime(),
 		Flags:  0,
 	}
@@ -138,7 +138,7 @@ func cbwSendRequestVector(ops *CbwOps, cc *CbwConn) int {
 			Op:     BwOpCall,
 			Id:     c.Id,
 			Len:    c.Len,
-			Demand: uint64(s.Head) - uint64(s.Tail),
+			Demand: uint64(s.Head - s.Tail),
 			TsSent: now,
 			Flags:  0,
 		}

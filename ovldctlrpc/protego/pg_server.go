@@ -264,7 +264,7 @@ func spgSender(ops *SpgOps, s *SpgSession) {
 		oldCredit := s.Credit
 		spgUpdateCredit(ops, s, reqDropped)
 		credit := s.Credit
-		creditIssued := Max(0, credit-oldCredit-numResp)
+		creditIssued := Max(0, credit-oldCredit+numResp)
 		AtomicAddUint64(&ops.SpgStatCreditTx, uint64(creditIssued))
 
 		sendECredit := (s.NeedECredit || s.WakeUp) &&
@@ -472,16 +472,22 @@ func spgWakeUpDrainedSession(ops *SpgOps, numSess uint64) {
 
 func spgDecrCreditPool(ops *SpgOps, delay uint64) uint64 {
 
-	creditPool := AtomicGetUint64(&ops.SpgCreditPool)
+	creditPool := int64(AtomicGetUint64(&ops.SpgCreditPool))
 	numSess := AtomicGetUint64(&ops.SpgNumSess)
 
-	creditPool -= Max(uint64(float64(numSess)*SpgAI), 1)
+	decr := int64(Max(uint64(float64(numSess)*SpgAI), 1))
+	creditPool -= decr
 	ops.SpgCreditCarry = 0.0
 
-	creditPool = Max(creditPool, uint64(runtime.GOMAXPROCS(0)))
-	creditPool = Min(creditPool, numSess<<SpgMaxWindowExp)
+	if creditPool < int64(runtime.GOMAXPROCS(0)) {
+		creditPool = int64(runtime.GOMAXPROCS(0))
+	}
+	maxCp := int64(numSess << SpgMaxWindowExp)
+	if creditPool > maxCp {
+		creditPool = maxCp
+	}
 
-	return creditPool
+	return uint64(creditPool)
 }
 
 func spgIncrCreditPool(ops *SpgOps, delay uint64) uint64 {
@@ -525,16 +531,23 @@ func spgUpdateCreditPool(ops *SpgOps) {
 		ops.SpgCmLock.Unlock()
 		return
 	}
+	if !ops.SpgCmResetStat {
+		AtomicSetUint64(&ops.SpgCmInCnt, 0)
+		AtomicSetUint64(&ops.SpgCmOutCnt, 0)
+		AtomicSetUint64(&ops.SpgCmDropCnt, 0)
+		ops.SpgCmResetStat = true
+	}
 	if tDiff < SpgCmUpdateInterval {
 		ops.SpgCmLock.Unlock()
 		return
 	}
 
 	ops.SpgCmLastUpdate = now
+	ops.SpgCmResetStat = false
 
 	creditUsed = AtomicGetUint64(&ops.SpgCreditUsed)
 	newCp = AtomicGetUint64(&ops.SpgCreditPool)
-	inCnt = int64AtomicGetUint64(&ops.SpgCmInCnt)
+	inCnt = AtomicGetUint64(&ops.SpgCmInCnt)
 	outCnt = AtomicGetUint64(&ops.SpgCmOutCnt)
 	lastInCnt = AtomicGetUint64(&ops.SpgCmLastInCnt)
 	lastOutCnt = AtomicGetUint64(&ops.SpgCmLastOutCnt)
@@ -683,8 +696,6 @@ again:
 			s.CompletedSlots.Set(uint32(idx))
 			s.SendCondVar.Signal()
 			s.Lock.Unlock()
-			AtomicAddUint64(&ops.SpgCmDropCnt, 1)
-			AtomicAddUint64(&ops.SpgStatReqDropped, 1)
 			goto again
 		}
 
@@ -898,6 +909,7 @@ type SpgOps struct {
 	SpgCmLastInCnt  uint64
 	SpgCmLastOutCnt uint64
 	SpgCmLastUpdate uint64
+	SpgCmResetStat  bool
 
 	// Per-core drained session lists
 	SpgDrained [SpgMaxProcs]SpgDrainedList

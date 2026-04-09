@@ -299,7 +299,7 @@ func spccSender(ops *SpccOps, s *SpccSession) {
 		oldCredit := s.Credit
 		spccUpdateCredit(ops, s, reqDropped)
 		credit := s.Credit
-		creditIssued := Max(0, credit-oldCredit-numResp)
+		creditIssued := Max(0, credit-oldCredit+numResp)
 		AtomicAddUint64(&ops.SpccStatCreditTx, uint64(creditIssued))
 
 		sendECredit := (s.NeedECredit || s.WakeUp) &&
@@ -580,7 +580,7 @@ func spccUpdateCreditPool(ops *SpccOps) {
 
 		// Perturb the credit pool if needed
 		if SpccMicroExpPerturbCp {
-			newCp = spccUpdateCp(ops.SpccMicroExpDirs[microExpId])
+			newCp = spccUpdateCp(ops, int(ops.SpccMicroExpDirs[microExpId]))
 			AtomicSetUint64(&ops.SpccCreditPool, newCp)
 			doWakeUp = true
 		}
@@ -642,8 +642,8 @@ func spccUpdateCreditPool(ops *SpccOps) {
 	case SpccCtlStateMakeDecision:
 
 		for i := uint64(1); i <= ops.SpccNumMicroExps; i++ {
-			stats[i].Duration = AtomicGetUint64(&ops.SpccEndTs[i]) - \
-					AtomicGetUint64(&ops.SpccStartTs[i])
+			stats[i].Duration = AtomicGetUint64(&ops.SpccEndTs[i]) -
+				AtomicGetUint64(&ops.SpccStartTs[i])
 			stats[i].InReqs = AtomicGetUint64(&ops.SpccInReqs[i])
 			stats[i].OutResps = AtomicGetUint64(&ops.SpccOutResps[i])
 			stats[i].GoodOutResps = AtomicGetUint64(&ops.SpccGoodOutResps[i])
@@ -672,7 +672,7 @@ func spccUpdateCreditPool(ops *SpccOps) {
 			}
 		}
 
-		if stats[1].inReqs == 0 || stats[2].InReqs == 0 {
+		if stats[1].InReqs == 0 || stats[2].InReqs == 0 {
 			updateDir = SpccDirPlus
 		} else if stats[1].InReqs > stats[2].InReqs {
 			updateDir = SpccCompUtilFn(&stats[2], &stats[1])

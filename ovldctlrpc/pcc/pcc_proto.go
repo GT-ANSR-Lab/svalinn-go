@@ -30,7 +30,7 @@ const (
 )
 
 // Header used for CLIENT -> SERVER
-type CpgHdr struct {
+type CpccHdr struct {
 	Magic  uint32
 	Op     PccOp
 	Len    uint64
@@ -41,7 +41,7 @@ type CpgHdr struct {
 }
 
 // Header used for SERVER -> CLIENT
-type SpgHdr struct {
+type SpccHdr struct {
 	Magic  uint32
 	Op     PccOp
 	Len    uint64

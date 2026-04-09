@@ -64,7 +64,7 @@ func cpgSendCUpdate(ops *CpgOps, cc *CpgConn) int {
 		Op:     PgOpCredit,
 		Id:     0,
 		Len:    0,
-		Demand: uint64(s.Head) - uint64(s.Tail),
+		Demand: uint64(s.Head - s.Tail),
 		Flags:  0,
 	}
 
@@ -90,7 +90,7 @@ func cpgSendRaw(ops *CpgOps, cc *CpgConn, buf []byte, len uint64, id uint64) int
 		Op:     PgOpCall,
 		Id:     id,
 		Len:    len,
-		Demand: uint64(s.Head) - uint64(s.Tail),
+		Demand: uint64(s.Head - s.Tail),
 		TsSent: MicroTime(),
 		Flags:  0,
 	}
@@ -138,7 +138,7 @@ func cpgSendRequestVector(ops *CpgOps, cc *CpgConn) int {
 			Op:     PgOpCall,
 			Id:     c.Id,
 			Len:    c.Len,
-			Demand: uint64(s.Head) - uint64(s.Tail),
+			Demand: uint64(s.Head - s.Tail),
 			TsSent: now,
 			Flags:  0,
 		}
