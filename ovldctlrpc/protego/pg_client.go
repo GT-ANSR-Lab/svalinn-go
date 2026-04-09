@@ -52,7 +52,7 @@ type CpgSession struct {
 	ReqDropped uint64
 }
 
-// Client operation handlers for "no control" overload control algorithm
+// Client operation handlers for "protego" overload control algorithm
 type CpgOps struct{}
 
 func cpgSendCUpdate(ops *CpgOps, cc *CpgConn) int {

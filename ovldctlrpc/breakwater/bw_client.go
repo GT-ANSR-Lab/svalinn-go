@@ -52,7 +52,7 @@ type CbwSession struct {
 	ReqDropped uint64
 }
 
-// Client operation handlers for "no control" overload control algorithm
+// Client operation handlers for "breakwater" overload control algorithm
 type CbwOps struct{}
 
 func cbwSendCUpdate(ops *CbwOps, cc *CbwConn) int {
