@@ -710,7 +710,7 @@ exit:
 	now = MicroTime()
 	if doWakeUp || now - ops.SpccLastWakeup > SpccRttUs {
 		newCp = AtomicGetUint64(&ops.SpccCreditPool)
-		creditUsed := AtomicGetUint64(&ops.SpccCreditUsed)
+		creditUsed = AtomicGetUint64(&ops.SpccCreditUsed)
 		if newCp > creditUsed {
 			creditUnused = newCp - creditUsed
 		} else {
@@ -735,9 +735,7 @@ func spccWorker(ops *SpccOps, s *SpccSession, c *SpccCtx) {
 
 	if !c.Cmn.Drop {
 		AtomicSetUint64(&ops.SpccCreditDs, c.Cmn.DsCredit)
-		AtomicAddUint64(&ops.SpccCmOutCnt, 1)
 	} else {
-		AtomicAddUint64(&ops.SpccCmDropCnt, 1)
 		AtomicAddUint64(&ops.SpccStatReqDropped, 1)
 	}
 
@@ -846,7 +844,6 @@ again:
 			AtomicSubUint64(&ops.SpccCreditUsed, uint64(creditDiff))
 		}
 		AtomicAddUint64(&ops.SpccNumPending, 1)
-		AtomicAddUint64(&ops.SpccCmInCnt, 1)
 
 		// Perform AQM
 		maxQueueDelay = perf.GetQueueDelayMax() / 1000
