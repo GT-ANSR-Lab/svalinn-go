@@ -187,6 +187,8 @@ func main() {
 		gSettings.ovldCtlAlgo = RpcBreakwaterOps
 	} else if *ovldCtlAlgo == "protego" {
 		gSettings.ovldCtlAlgo = RpcProtegoOps
+	} else if *ovldCtlAlgo == "pcc" {
+		gSettings.ovldCtlAlgo = RpcPccOps
 	} else {
 		panic("Invalid overload controller algorithm")
 	}

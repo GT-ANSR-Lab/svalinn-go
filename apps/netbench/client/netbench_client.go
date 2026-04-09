@@ -802,7 +802,7 @@ func main() {
 	var (
 		// Settings common to any load generator client
 		serverIP    = flag.String("server", "127.0.0.1", "Server IP address")
-		ovldCtlAlgo = flag.String("ovldctlalgo", "nocontrol", "Overload control algorithm (e.g., nocontrol, breakwater, protego)")
+		ovldCtlAlgo = flag.String("ovldctlalgo", "nocontrol", "Overload control algorithm (e.g., nocontrol, breakwater, protego, pcc)")
 		numConns    = flag.Int("connections", 100, "Number of connections")
 		numAgents   = flag.Int("agents", 1, "Number of clients/agents")
 		slo         = flag.Int("slo", 1000, "SLO (Service Level Objective) in us")
@@ -837,6 +837,8 @@ func main() {
 			gSettings.OvldCtlAlgo = RpcBreakwaterOps
 		} else if *ovldCtlAlgo == "protego" {
 			gSettings.OvldCtlAlgo = RpcProtegoOps
+		} else if *ovldCtlAlgo == "pcc" {
+			gSettings.OvldCtlAlgo = RpcPccOps
 		} else {
 			panic("Invalid overload controller algorithm")
 		}
