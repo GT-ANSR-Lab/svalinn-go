@@ -1,6 +1,6 @@
 package main
 
-// #cgo CFLAGS: -msse2 -O3
+// #cgo CFLAGS: -O3
 // #cgo LDFLAGS: -lnuma -lm
 // #include "synthetic_worker.c"
 // #include <stdint.h>

@@ -16,11 +16,11 @@ all: $(netbench_go_server_tgt) $(netbench_go_client_tgt)
 
 $(netbench_go_server_tgt): $(netbench_go_server_srcs)
 	mkdir -p $(BUILD_PATH)
-	$(GO_PATH) build -o $@ $<
+	$(GO_PATH) build -o $@ $^
 
 $(netbench_go_client_tgt): $(netbench_go_client_srcs)
 	mkdir -p $(BUILD_PATH)
-	$(GO_PATH) build -o $@ $<
+	$(GO_PATH) build -o $@ $^
 
 clean:
 	rm -rf $(BUILD_PATH)
