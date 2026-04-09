@@ -21,7 +21,7 @@ for node in NODES:
 
 # build the applications
 print("Building Netbench Go applications...")
-cmd = "cd ~/{}/ && make clean && make all".format(ARTIFACT_PATH)
+cmd = "cd ~/{}/apps/netbench && make clean && make all".format(ARTIFACT_PATH)
 execute_remote(conns, cmd, True)
 
 print("Done.")
