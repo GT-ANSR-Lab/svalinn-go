@@ -19,17 +19,17 @@ import (
 
 // Constants
 const (
-	StatPort                int  = 8002
-	MaxProcs                int  = 256
-	MemBoundWorkerBufSize   int  = 32768
-	MemBoundWorkerNopPeriod int  = 0
-	MemBoundWorkerNopNum    int  = 0
-	UseMsem                 bool = true
+	StatPort                int = 8002
+	MaxProcs                int = 256
+	MemBoundWorkerBufSize   int = 32768
+	MemBoundWorkerNopPeriod int = 0
+	MemBoundWorkerNopNum    int = 0
 )
 
 // Global program settings
 var gSettings struct {
 	ovldCtlAlgo RpcOpsType
+	useMsem     bool
 }
 
 // RPC server object
@@ -59,7 +59,7 @@ func NetbenchReqHandler(ctx *RpcServerCtx) {
 	if req.IsCpuBoundReq {
 		gCpuBoundWorkers[procID].Work(req.WorkItr)
 	} else {
-		if UseMsem {
+		if gSettings.useMsem {
 			if gMemSem.TryWait() {
 				gMemBoundWorkers[procID].Work(req.WorkItr)
 				gMemSem.Post()
@@ -178,7 +178,10 @@ func main() {
 	// Parse the command line arguments
 	ovldCtlAlgo := flag.String("ovldctlalgo", "nocontrol",
 		"Overload Controller Algorithm")
+	useMsem := flag.Bool("usemsem", false,
+		"Enable memory semaphore for memory-bound requests")
 	flag.Parse()
+	gSettings.useMsem = *useMsem
 
 	// Interpret and Validate the arguments
 	if *ovldCtlAlgo == "nocontrol" {
@@ -206,7 +209,7 @@ func main() {
 	}
 
 	// Create the memory semaphore
-	if UseMsem {
+	if gSettings.useMsem {
 		gMemSem = msemaphore.GetInstance()
 	}
 

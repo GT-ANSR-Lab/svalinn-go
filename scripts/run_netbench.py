@@ -15,7 +15,18 @@ import pandas as pd
 ################################
 
 # Overload controller settings
-OVERLOAD_ALG = "protego"
+OVERLOAD_ALG = "pcc"
+
+# Perf monitoring settings
+PERF_UPDATE_INTERVAL = 20  # in microseconds; 0 = disable monitoring goroutine
+
+# Memory semaphore settings
+MSEM_ENABLE = False
+MSEM_CTL_DELAY_US = 500
+MSEM_ALPHA = 0.8
+MSEM_TARGET_NORM_MEMBW = 1.0
+MSEM_EXPLR_PROB = 0.3
+MSEM_REWARD_EWMA_WEIGHT = 0.8
 
 # Total number of client connections
 NUM_CONNS = 100
@@ -31,7 +42,7 @@ OFFERED_LOADS = [int((i+1) * (MAX_OFFERED_LOAD/NUM_SAMPLES)) for i in range(NUM_
 
 # Network RTT on the testbed
 NET_RTT = 10
-SLO = 400
+SLO = 1000
 
 # Netbench settings
 CPU_BOUND_WORK_ITR = 5000
@@ -124,6 +135,46 @@ for fil in FILES_TO_REPLACE:
                       node["name"], ARTIFACT_PATH, fil["dst"])
         execute_local(cmd)
 
+# Set the perf refresh period on all servers
+print("Updating perf refresh period...")
+cmd = "sed -i 's/perfRefreshPeriod = .*/perfRefreshPeriod = {} * time.Microsecond/'"\
+      " ~/{}/perf/perf.go".format(PERF_UPDATE_INTERVAL, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+# Disable perf monitoring on clients and agents
+cmd = "sed -i 's/perfRefreshPeriod = .*/perfRefreshPeriod = 0 * time.Microsecond/'"\
+      " ~/{}/perf/perf.go".format(ARTIFACT_PATH)
+execute_remote([client_conn] + agent_conns, cmd, True)
+
+# Set the memory semaphore parameters on the server
+print("Updating memory semaphore parameters...")
+cmd = "sed -i 's/egCtlDelayUs = .*/egCtlDelayUs = {}/'"\
+      " ~/{}/msemaphore/eg.go".format(MSEM_CTL_DELAY_US, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/tsCtlDelayUs = .*/tsCtlDelayUs = {}/'"\
+      " ~/{}/msemaphore/ts.go".format(MSEM_CTL_DELAY_US, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/egAlpha            = .*/egAlpha            = {}/'"\
+      " ~/{}/msemaphore/eg.go".format(MSEM_ALPHA, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/tsAlpha           = .*/tsAlpha           = {}/'"\
+      " ~/{}/msemaphore/ts.go".format(MSEM_ALPHA, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/egTargetNormMembw  = .*/egTargetNormMembw  = {}/'"\
+      " ~/{}/msemaphore/eg.go".format(MSEM_TARGET_NORM_MEMBW, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/tsTargetNormMembw = .*/tsTargetNormMembw = {}/'"\
+      " ~/{}/msemaphore/ts.go".format(MSEM_TARGET_NORM_MEMBW, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/egExplrProb = .*/egExplrProb = {}/'"\
+      " ~/{}/msemaphore/eg.go".format(MSEM_EXPLR_PROB, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/tsExplrProb = .*/tsExplrProb = {}/'"\
+      " ~/{}/msemaphore/ts.go".format(MSEM_EXPLR_PROB, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/egRewardEwmaWeight = .*/egRewardEwmaWeight = {}/'"\
+      " ~/{}/msemaphore/eg.go".format(MSEM_REWARD_EWMA_WEIGHT, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+
 # Rebuild Go runtime
 print("Building Go runtime...")
 cmd = "GOROOT_BOOTSTRAP=~/{}/deps/bootstrap/go"\
@@ -160,9 +211,11 @@ for offered_load in OFFERED_LOADS:
     cmd = "cd ~/{} && GOMAXPROCS={}"\
         " sudo -E numactl --cpunodebind={} --membind={}"\
         " ./apps/netbench/build/netbench_server --ovldctlalgo {}"\
+        " --usemsem={}"\
         " >stdout.out 2>&1".\
         format(ARTIFACT_PATH, SERVERS[0]["cores"], SERVERS[0]["numa"],
-               SERVERS[0]["numa"], OVERLOAD_ALG)
+               SERVERS[0]["numa"], OVERLOAD_ALG,
+               "true" if MSEM_ENABLE else "false")
     server_session = execute_remote([server_conn], cmd, False)[0]
     sleep(5)
 
@@ -243,6 +296,13 @@ execute_local(cmd)
 
 # Collect the config used by this test run
 run_config = ""
+run_config += "perf update interval: {} us\n".format(PERF_UPDATE_INTERVAL)
+run_config += "msem enable: {}\n".format(MSEM_ENABLE)
+run_config += "msem ctl delay: {} us\n".format(MSEM_CTL_DELAY_US)
+run_config += "msem alpha: {}\n".format(MSEM_ALPHA)
+run_config += "msem target norm membw: {}\n".format(MSEM_TARGET_NORM_MEMBW)
+run_config += "msem explr prob: {}\n".format(MSEM_EXPLR_PROB)
+run_config += "msem reward ewma weight: {}\n".format(MSEM_REWARD_EWMA_WEIGHT)
 run_config += "overload algorithm: {}\n".format(OVERLOAD_ALG)
 run_config += "number of nodes: {}\n".format(len(NODES))
 run_config += "number of client nodes: {}\n".format(len(CLIENTS))

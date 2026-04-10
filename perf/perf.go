@@ -24,8 +24,8 @@ import (
 // This lets us collapse all perf telemetry onto one refresher thread.
 
 // How often the single background goroutine refreshes all cached counters.
-// Tune as needed.
-const perfRefreshPeriod = 20 * time.Microsecond
+// Tune as needed. If set to 0, the monitoring goroutine is not started.
+var perfRefreshPeriod = 20 * time.Microsecond
 
 // If true, the refresher calls the aggregate MemPmcGetMemAccesses API once
 // per tick and only updates the cached total. Per-channel cached values are
@@ -95,7 +95,9 @@ func PerfInit() {
 	}
 	perfStPtr.Store(st)
 
-	go perfRefresher(st)
+	if perfRefreshPeriod > 0 {
+		go perfRefresher(st)
+	}
 }
 
 // PerfDeInit stops the background refresher goroutine and tears down the
@@ -111,7 +113,9 @@ func PerfDeInit() {
 
 	// Signal and wait for the refresher to exit before tearing down C state.
 	st.stop.Store(true)
-	<-st.done
+	if perfRefreshPeriod > 0 {
+		<-st.done
+	}
 
 	pmc.MemPmcDeInit()
 	pmc.PowPmcDeInit()
