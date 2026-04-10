@@ -247,6 +247,8 @@ type WorkUnit struct {
 // Server-side statistics
 type SStat struct {
 	CpuUsage     float64
+	MembwUsage   float64
+	PowerUsage   float64
 	CUpdateRxPps float64
 	ECreditTxPps float64
 	CreditTxCps  float64
@@ -713,6 +715,8 @@ func RunExperiment() {
 	var sstat SStat
 	total := sstatFinish.Total - sstatStart.Total
 	busy := sstatFinish.Busy - sstatStart.Busy
+	memAccesses := sstatFinish.MemAccesses - sstatStart.MemAccesses
+	energyConsumed := sstatFinish.EnergyConsumed - sstatStart.EnergyConsumed
 	cUpdateRx := sstatFinish.CUpdateRx - sstatStart.CUpdateRx
 	eCreditTx := sstatFinish.ECreditTx - sstatStart.ECreditTx
 	creditTx := sstatFinish.CreditTx - sstatStart.CreditTx
@@ -720,6 +724,8 @@ func RunExperiment() {
 	reqDropped := sstatFinish.ReqDropped - sstatStart.ReqDropped
 	respTx := sstatFinish.RespTx - sstatStart.RespTx
 	sstat.CpuUsage = float64(busy) / float64(total)
+	sstat.MembwUsage = float64(memAccesses) / elapsedS
+	sstat.PowerUsage = energyConsumed / elapsedS
 	sstat.CUpdateRxPps = float64(cUpdateRx) / elapsedS
 	sstat.ECreditTxPps = float64(eCreditTx) / elapsedS
 	sstat.CreditTxCps = float64(creditTx) / elapsedS
@@ -745,6 +751,8 @@ func PrintStats(cstat *CStat, sstat *SStat) {
 	fmt.Fprintf(&sb, ",%.3f", cstat.MemBoundWorkRps)
 	fmt.Fprintf(&sb, ",%.3f", cstat.Goodput)
 	fmt.Fprintf(&sb, ",%.3f", sstat.CpuUsage)
+	fmt.Fprintf(&sb, ",%.3f", sstat.MembwUsage)
+	fmt.Fprintf(&sb, ",%.3f", sstat.PowerUsage)
 	fmt.Fprintf(&sb, ",%.3f", cstat.MinDurationUs)
 	fmt.Fprintf(&sb, ",%.3f", cstat.MeanDurationUs)
 	fmt.Fprintf(&sb, ",%.3f", cstat.P50DurationUs)

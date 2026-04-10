@@ -9,14 +9,16 @@ type NetbenchStatReq struct {
 }
 
 type NetbenchStatResp struct {
-	Total      uint64
-	Busy       uint64
-	CUpdateRx  uint64
-	ECreditTx  uint64
-	CreditTx   uint64
-	ReqRx      uint64
-	ReqDropped uint64
-	RespTx     uint64
+	Total          uint64
+	Busy           uint64
+	MemAccesses    uint64
+	EnergyConsumed float64
+	CUpdateRx      uint64
+	ECreditTx      uint64
+	CreditTx       uint64
+	ReqRx          uint64
+	ReqDropped     uint64
+	RespTx         uint64
 }
 
 const (

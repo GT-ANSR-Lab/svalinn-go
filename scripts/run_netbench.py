@@ -272,7 +272,7 @@ cmd = "scp -P 22 -i {} -o StrictHostKeyChecking=no {}@{}:~/{}/output.csv ./"\
         " >/dev/null".format(KEY_LOCATION, USERNAME, CLIENT["name"], ARTIFACT_PATH)
 execute_local(cmd)
 # Add the header to the raw output CSV file
-header = "num_clients,offered_load,throughput,cpu_bound_req_throughput,mem_bound_req_throughput,goodput,cpu,min,mean,p50,cpu_bound_req_p50,mem_bound_req_p50,p90,cpu_bound_req_p90,mem_bound_req_p90,p99,cpu_bound_req_p99,mem_bound_req_p99,max,cpu_bound_req_st_p50,cpu_bound_req_st_p90,cpu_bound_req_st_p99,cpu_bound_req_st_mean,mem_bound_req_st_p50,mem_bound_req_st_p90,mem_bound_req_st_p99,mem_bound_req_st_mean,client:ecredit_rx_pps,client:cupdate_tx_pps,client:credit_expired_cps,client:resp_rx_pps,client:req_tx_pps,client:req_dropped_rps,server:cupdate_rx_pps,server:ecredit_tx_pps,server:credit_tx_cps,server:req_rx_pps,server:resp_tx_pps,server:req_drop_rate"
+header = "num_clients,offered_load,throughput,cpu_bound_req_throughput,mem_bound_req_throughput,goodput,cpu,membw,power,min,mean,p50,cpu_bound_req_p50,mem_bound_req_p50,p90,cpu_bound_req_p90,mem_bound_req_p90,p99,cpu_bound_req_p99,mem_bound_req_p99,max,cpu_bound_req_st_p50,cpu_bound_req_st_p90,cpu_bound_req_st_p99,cpu_bound_req_st_mean,mem_bound_req_st_p50,mem_bound_req_st_p90,mem_bound_req_st_p99,mem_bound_req_st_mean,client:ecredit_rx_pps,client:cupdate_tx_pps,client:credit_expired_cps,client:resp_rx_pps,client:req_tx_pps,client:req_dropped_rps,server:cupdate_rx_pps,server:ecredit_tx_pps,server:credit_tx_cps,server:req_rx_pps,server:resp_tx_pps,server:req_drop_rate"
 cmd = "echo \"{}\" > {}/output.csv".format(header, output_dir)
 execute_local(cmd)
 cmd = "cat output.csv >> {}/output.csv".format(output_dir)

@@ -15,6 +15,7 @@ import (
 	. "utils"
 
 	"msemaphore"
+	"perf"
 )
 
 // Constants
@@ -131,14 +132,16 @@ func NetbenchStatWorker(conn *net.TCPConn) {
 
 		// Prepare the response
 		resp := NetbenchStatResp{
-			Total:      total,
-			Busy:       busy,
-			CUpdateRx:  gServer.StatCUpdateRx(),
-			ECreditTx:  gServer.StatECreditTx(),
-			CreditTx:   gServer.StatCreditTx(),
-			ReqRx:      gServer.StatReqRx(),
-			ReqDropped: gServer.StatReqDropped(),
-			RespTx:     gServer.StatRespTx(),
+			Total:          total,
+			Busy:           busy,
+			MemAccesses:    perf.MemPmcGetMemAccesses(),
+			EnergyConsumed: perf.PowPmcGetEnergyConsumed(),
+			CUpdateRx:      gServer.StatCUpdateRx(),
+			ECreditTx:      gServer.StatECreditTx(),
+			CreditTx:       gServer.StatCreditTx(),
+			ReqRx:          gServer.StatReqRx(),
+			ReqDropped:     gServer.StatReqDropped(),
+			RespTx:         gServer.StatRespTx(),
 		}
 
 		// Send the stat response
