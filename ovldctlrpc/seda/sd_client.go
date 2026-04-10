@@ -384,6 +384,7 @@ func (ops *CsdOps) CrpcAddConnection(s *CrpcSession, raddr *net.TCPAddr) int {
 		fmt.Println("Failed to connect with the server")
 		return -1
 	}
+	conn.SetNoDelay(true)
 
 	// Allocate the connection object
 	c := &CsdConn{}
@@ -539,6 +540,7 @@ func (ops *CsdOps) CrpcOpen(
 		fmt.Println("Failed to connect with the server")
 		return nil, -1
 	}
+	conn.SetNoDelay(true)
 
 	// Allocate the session object
 	s := &CsdSession{}

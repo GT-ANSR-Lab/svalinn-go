@@ -356,6 +356,7 @@ func sncListener(ops *SncOps, listenWaiter *sync.WaitGroup) {
 			conn.Close()
 			continue
 		}
+		conn.SetNoDelay(true)
 
 		// Handle the new connection
 		go sncServer(ops, conn)

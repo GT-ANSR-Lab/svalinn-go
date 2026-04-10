@@ -275,6 +275,7 @@ func (ops *CbwOps) CrpcAddConnection(s *CrpcSession, raddr *net.TCPAddr) int {
 		fmt.Println("Failed to connect with the server")
 		return -1
 	}
+	conn.SetNoDelay(true)
 
 	// Allocate the connection object
 	c := &CbwConn{}
@@ -482,6 +483,7 @@ func (ops *CbwOps) CrpcOpen(
 		fmt.Println("Failed to connect with the server")
 		return nil, -1
 	}
+	conn.SetNoDelay(true)
 
 	// Allocate the session object
 	s := &CbwSession{}

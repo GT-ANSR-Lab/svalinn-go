@@ -884,6 +884,7 @@ func spgListener(ops *SpgOps, listenWaiter *sync.WaitGroup) {
 			conn.Close()
 			continue
 		}
+		conn.SetNoDelay(true)
 
 		// Handle the new connection
 		go spgServer(ops, conn)

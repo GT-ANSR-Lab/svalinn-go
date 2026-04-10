@@ -340,6 +340,7 @@ func ssdListener(ops *SsdOps, listenWaiter *sync.WaitGroup) {
 			conn.Close()
 			continue
 		}
+		conn.SetNoDelay(true)
 
 		// Handle the new connection
 		go ssdServer(ops, conn)

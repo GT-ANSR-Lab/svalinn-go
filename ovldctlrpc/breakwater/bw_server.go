@@ -826,6 +826,7 @@ func sbwListener(ops *SbwOps, listenWaiter *sync.WaitGroup) {
 			conn.Close()
 			continue
 		}
+		conn.SetNoDelay(true)
 
 		// Handle the new connection
 		go sbwServer(ops, conn)
