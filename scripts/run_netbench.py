@@ -22,8 +22,8 @@ PERF_UPDATE_INTERVAL = 20  # in microseconds; 0 = disable monitoring goroutine
 
 # Memory semaphore settings
 MSEM_ENABLE = False
-MSEM_CTL_DELAY_US = 500
-MSEM_ALPHA = 0.8
+MSEM_CTL_DELAY_US = 1000
+MSEM_ALPHA = 0.6
 MSEM_TARGET_NORM_MEMBW = 1.0
 MSEM_EXPLR_PROB = 0.3
 MSEM_REWARD_EWMA_WEIGHT = 0.8
@@ -36,7 +36,7 @@ NUM_CLIENTS = len(CLIENTS)
 NUM_AGENTS = len(AGENTS)
 
 # List of offered load
-NUM_SAMPLES = 10
+NUM_SAMPLES = 1
 MAX_OFFERED_LOAD = 1000000
 OFFERED_LOADS = [int((i+1) * (MAX_OFFERED_LOAD/NUM_SAMPLES)) for i in range(NUM_SAMPLES)]
 
@@ -45,9 +45,14 @@ NET_RTT = 10
 SLO = 1000
 
 # Netbench settings
-CPU_BOUND_WORK_ITR = 5000
-MEM_BOUND_WORK_ITR = 100
-CPU_BOUND_REQ_PCNT = 80
+CPU_BOUND_REQ_PCNT = 0
+
+# Server worker settings
+NUM_CPU_WORKERS = 4096
+CPU_WORK_ITERS = 5000
+NUM_MEMBW_WORKERS = 4096
+MEMBW_WORK_ITERS = 1
+MEMBW_BUF_SIZE = 500000
 
 # Duration of a single test case (i.e., one offered load sample)
 DURATION_SEC = 30
@@ -212,10 +217,14 @@ for offered_load in OFFERED_LOADS:
         " sudo -E numactl --cpunodebind={} --membind={}"\
         " ./apps/netbench/build/netbench_server --ovldctlalgo {}"\
         " --usemsem={}"\
+        " --numcpuworkers {} --cpuworkiters {}"\
+        " --nummembwworkers {} --membwworkiters {} --membwbufsize {}"\
         " >stdout.out 2>&1".\
         format(ARTIFACT_PATH, SERVERS[0]["cores"], SERVERS[0]["numa"],
                SERVERS[0]["numa"], OVERLOAD_ALG,
-               "true" if MSEM_ENABLE else "false")
+               "true" if MSEM_ENABLE else "false",
+               NUM_CPU_WORKERS, CPU_WORK_ITERS,
+               NUM_MEMBW_WORKERS, MEMBW_WORK_ITERS, MEMBW_BUF_SIZE)
     server_session = execute_remote([server_conn], cmd, False)[0]
     sleep(5)
 
@@ -226,12 +235,12 @@ for offered_load in OFFERED_LOADS:
         " sudo -E numactl --cpunodebind={} --membind={}"\
         " ./apps/netbench/build/netbench_client --clienttype client --server {}"\
         " --ovldctlalgo {} --connections {} --agents {} --slo {} --load {}"\
-        " --duration {} --cpuiters {} --memiters {} --cpuperc {}"\
+        " --duration {} --cpuperc {}"\
         " >stdout.out 2>&1"\
         .format(ARTIFACT_PATH, CLIENT["cores"], CLIENT["numa"],
                 CLIENT["numa"], SERVERS[0]["ip"], OVERLOAD_ALG, NUM_CONNS,
                 NUM_CLIENTS, SLO, offered_load, DURATION_SEC,
-                CPU_BOUND_WORK_ITR, MEM_BOUND_WORK_ITR, CPU_BOUND_REQ_PCNT)
+                CPU_BOUND_REQ_PCNT)
     client_agent_sessions += execute_remote([client_conn], cmd, False)
     sleep(3)
 
@@ -312,9 +321,12 @@ run_config += "offered load (in RPS): {}\n".format(OFFERED_LOADS)
 run_config += "test duration (in seconds): {}\n".format(DURATION_SEC)
 run_config += "RTT: {} us\n".format(NET_RTT)
 run_config += "SLO: {} us\n".format(SLO)
-run_config += "CPU-bound workload per-request iterations: {}\n".format(CPU_BOUND_WORK_ITR)
-run_config += "Memory-bound workload per-request iterations: {}\n".format(MEM_BOUND_WORK_ITR)
 run_config += "CPU-bound request percentage: {}\n".format(CPU_BOUND_REQ_PCNT)
+run_config += "num cpu workers: {}\n".format(NUM_CPU_WORKERS)
+run_config += "cpu work iters: {}\n".format(CPU_WORK_ITERS)
+run_config += "num membw workers: {}\n".format(NUM_MEMBW_WORKERS)
+run_config += "membw work iters: {}\n".format(MEMBW_WORK_ITERS)
+run_config += "membw buf size: {}\n".format(MEMBW_BUF_SIZE)
 cmd = "echo \"{}\" > {}/run.config".format(run_config, output_dir)
 execute_local(cmd)
 

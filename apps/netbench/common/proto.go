@@ -30,7 +30,7 @@ type NetbenchReq struct {
 	Magic         uint64
 	Opaque        uint64
 	IsCpuBoundReq bool
-	WorkItr       uint64
+	Hash          uint64
 }
 
 type NetbenchResp struct {

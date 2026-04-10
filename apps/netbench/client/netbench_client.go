@@ -28,18 +28,16 @@ const (
 
 // Client settings type
 type Settings struct {
-	IsMasterClient    bool
-	ServerIP          string
-	MasterClientIP    string
-	OvldCtlAlgo       RpcOpsType
-	NumConns          int
-	NumAgents         int
-	Slo               int
-	OfferedLoad       float64
-	DurationS         int
-	CpuBoundWorkIters int
-	MemBoundWorkIters int
-	CpuBoundWorkPerc  int
+	IsMasterClient   bool
+	ServerIP         string
+	MasterClientIP   string
+	OvldCtlAlgo      RpcOpsType
+	NumConns         int
+	NumAgents        int
+	Slo              int
+	OfferedLoad      float64
+	DurationS        int
+	CpuBoundWorkPerc int
 }
 
 // Global client settings
@@ -309,12 +307,6 @@ func GenerateWork(units *[]WorkUnit) {
 		// Generate a few values for the work unit
 		hash := rand.Int()
 		isCpuBoundReq := hash%100 < gSettings.CpuBoundWorkPerc
-		workItr := uint64(0)
-		if isCpuBoundReq {
-			workItr = uint64(gSettings.CpuBoundWorkIters)
-		} else {
-			workItr = uint64(gSettings.MemBoundWorkIters)
-		}
 		currUs += rand.ExpFloat64() * avgInterArrivalUs
 
 		// Prepare the work unit
@@ -329,7 +321,7 @@ func GenerateWork(units *[]WorkUnit) {
 				Magic:         NetbenchReqMagic,
 				Opaque:        id,
 				IsCpuBoundReq: isCpuBoundReq,
-				WorkItr:       workItr,
+				Hash:          uint64(hash),
 			},
 		}
 		*units = append(*units, wu)
@@ -816,10 +808,7 @@ func main() {
 		slo         = flag.Int("slo", 1000, "SLO (Service Level Objective) in us")
 		offeredLoad = flag.Float64("load", 100000.0, "Offered load")
 		durationS   = flag.Int("duration", 10, "Test duration in seconds")
-		// Workload specific settings
-		cpuIters = flag.Int("cpuiters", 290, "CPU-bound work iterations")
-		memIters = flag.Int("memiters", 500, "Memory-bound work iterations")
-		cpuPerc  = flag.Int("cpuperc", 80, "CPU-bound work percentage")
+		cpuPerc     = flag.Int("cpuperc", 80, "CPU-bound work percentage")
 	)
 
 	// Non-master client arguments
@@ -857,8 +846,6 @@ func main() {
 		gSettings.Slo = *slo
 		gSettings.OfferedLoad = *offeredLoad
 		gSettings.DurationS = *durationS
-		gSettings.CpuBoundWorkIters = *cpuIters
-		gSettings.MemBoundWorkIters = *memIters
 		gSettings.CpuBoundWorkPerc = *cpuPerc
 	} else if *clientType == "agent" {
 		gSettings.IsMasterClient = false

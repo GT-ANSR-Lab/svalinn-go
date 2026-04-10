@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -20,25 +19,26 @@ import (
 
 // Constants
 const (
-	StatPort                int = 8002
-	MaxProcs                int = 256
-	MemBoundWorkerBufSize   int = 32768
-	MemBoundWorkerNopPeriod int = 0
-	MemBoundWorkerNopNum    int = 0
+	StatPort int = 8002
 )
 
 // Global program settings
 var gSettings struct {
-	ovldCtlAlgo RpcOpsType
-	useMsem     bool
+	ovldCtlAlgo    RpcOpsType
+	useMsem        bool
+	numCpuWorkers  int
+	cpuWorkIters   uint64
+	numMemBwWorkers int
+	memBwWorkIters uint64
+	memBwBufSize   int
 }
 
 // RPC server object
 var gServer *RpcServer
 
-// Application-specific state
-var gCpuBoundWorkers [MaxProcs]*SqrtWorker
-var gMemBoundWorkers [MaxProcs]*MemBWAntagonistWorker
+// Application-specific state — large pools of workers indexed by request hash
+var gCpuBoundWorkers []*SqrtWorker
+var gMemBoundWorkers []*MemBWWorker
 
 // Memory semaphore
 var gMemSem *msemaphore.MemSemaphore
@@ -56,13 +56,14 @@ func NetbenchReqHandler(ctx *RpcServerCtx) {
 
 	// Perform the synthetic work
 	start := MicroTime()
-	procID := runtime.GetProcId()
 	if req.IsCpuBoundReq {
-		gCpuBoundWorkers[procID].Work(req.WorkItr)
+		idx := req.Hash % uint64(gSettings.numCpuWorkers)
+		gCpuBoundWorkers[idx].Work(gSettings.cpuWorkIters)
 	} else {
+		idx := req.Hash % uint64(gSettings.numMemBwWorkers)
 		if gSettings.useMsem {
 			if gMemSem.TryWait() {
-				gMemBoundWorkers[procID].Work(req.WorkItr)
+				gMemBoundWorkers[idx].Work(gSettings.memBwWorkIters)
 				gMemSem.Post()
 			} else {
 				// Skip work if semaphore not acquired
@@ -70,7 +71,7 @@ func NetbenchReqHandler(ctx *RpcServerCtx) {
 				return
 			}
 		} else {
-			gMemBoundWorkers[procID].Work(req.WorkItr)
+			gMemBoundWorkers[idx].Work(gSettings.memBwWorkIters)
 		}
 	}
 	end := MicroTime()
@@ -183,8 +184,24 @@ func main() {
 		"Overload Controller Algorithm")
 	useMsem := flag.Bool("usemsem", false,
 		"Enable memory semaphore for memory-bound requests")
+	numCpuWorkers := flag.Int("numcpuworkers", 4096,
+		"Number of CPU-bound worker instances")
+	cpuWorkIters := flag.Int("cpuworkiters", 5000,
+		"Iterations per CPU-bound request")
+	numMemBwWorkers := flag.Int("nummembwworkers", 4096,
+		"Number of memory-bandwidth worker instances")
+	memBwWorkIters := flag.Int("membwworkiters", 25,
+		"Iterations per memory-bandwidth request")
+	memBwBufSize := flag.Int("membwbufsize", 32768,
+		"Buffer size (bytes) per memory-bandwidth worker")
 	flag.Parse()
+
 	gSettings.useMsem = *useMsem
+	gSettings.numCpuWorkers = *numCpuWorkers
+	gSettings.cpuWorkIters = uint64(*cpuWorkIters)
+	gSettings.numMemBwWorkers = *numMemBwWorkers
+	gSettings.memBwWorkIters = uint64(*memBwWorkIters)
+	gSettings.memBwBufSize = *memBwBufSize
 
 	// Interpret and Validate the arguments
 	if *ovldCtlAlgo == "nocontrol" {
@@ -203,12 +220,13 @@ func main() {
 	fmt.Printf("Selected \"%s\" overload control algorithm\n", *ovldCtlAlgo)
 
 	// Initialize application-specific state
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
-		gCpuBoundWorkers[i], _ = NewSqrtWorker()
-		gMemBoundWorkers[i], _ = NewMemBWAntagonistWorker(
-			MemBoundWorkerBufSize,
-			MemBoundWorkerNopPeriod,
-			MemBoundWorkerNopNum)
+	gCpuBoundWorkers = make([]*SqrtWorker, gSettings.numCpuWorkers)
+	for i := 0; i < gSettings.numCpuWorkers; i++ {
+		gCpuBoundWorkers[i] = NewSqrtWorker()
+	}
+	gMemBoundWorkers = make([]*MemBWWorker, gSettings.numMemBwWorkers)
+	for i := 0; i < gSettings.numMemBwWorkers; i++ {
+		gMemBoundWorkers[i] = NewMemBWWorker(gSettings.memBwBufSize)
 	}
 
 	// Create the memory semaphore
@@ -232,10 +250,4 @@ func main() {
 	// Wait forever
 	fmt.Println("Server initialized and now waiting for connections...")
 	select {}
-
-	// Clean up the workers
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
-		gCpuBoundWorkers[i].Close()
-		gMemBoundWorkers[i].Close()
-	}
 }
