@@ -54,6 +54,9 @@ type memSemaphoreMabTsImpl struct {
 	// Scratch buffer for softmax probabilities.
 	softmaxProbs []float64
 
+	// Per-instance RNG to avoid contention on the global rand lock.
+	rng *rand.Rand
+
 	// Memory bandwidth measurement state.
 	lastBytes uint64
 	lastTime  uint64 // microseconds
@@ -76,6 +79,7 @@ func newMemSemaphoreMabTsImpl(maxCap, initCap uint32) *memSemaphoreMabTsImpl {
 		vars:         make([]float64, maxCap+1),
 		stdDevs:      make([]float64, maxCap+1),
 		softmaxProbs: make([]float64, maxCap+1),
+		rng:          rand.New(rand.NewSource(rand.Int63())),
 	}
 	for i := uint32(1); i <= maxCap; i++ {
 		m.samples[i] = make([]float64, tsWindowSz)
@@ -134,7 +138,7 @@ func (m *memSemaphoreMabTsImpl) updateCapacity() {
 	m.means[arm] = m.vars[arm] * (tsMu0/tsSigma0Sq + m.sums[arm]/tsSigmaSq)
 	m.stdDevs[arm] = math.Sqrt(m.vars[arm])
 
-	if rand.Float64() < tsExplrProb {
+	if m.rng.Float64() < tsExplrProb {
 		// Explore: softmax over arms in [1..cap] (lower-than-current).
 		// This probes for regime changes that lower the optimal capacity.
 		maxMean := -1e18
@@ -151,7 +155,7 @@ func (m *memSemaphoreMabTsImpl) updateCapacity() {
 		for i := uint32(1); i <= m.cap; i++ {
 			m.softmaxProbs[i] /= sum
 		}
-		r := rand.Float64()
+		r := m.rng.Float64()
 		for i := uint32(1); i <= m.cap; i++ {
 			if r < m.softmaxProbs[i] {
 				m.cap = i
@@ -165,7 +169,7 @@ func (m *memSemaphoreMabTsImpl) updateCapacity() {
 		best := uint32(1)
 		bestSample := -1e18
 		for i := uint32(1); i <= m.maxCap; i++ {
-			s := m.means[i] + m.stdDevs[i]*rand.NormFloat64()
+			s := m.means[i] + m.stdDevs[i]*m.rng.NormFloat64()
 			if s > bestSample {
 				bestSample = s
 				best = i

@@ -35,6 +35,9 @@ type memSemaphoreMabEgImpl struct {
 
 	ewmaRewards []float64 // length maxCap+1, indexed 1..maxCap
 
+	// Per-instance RNG to avoid contention on the global rand lock.
+	rng *rand.Rand
+
 	// Memory bandwidth measurement state
 	lastBytes uint64
 	lastTime  uint64 // microseconds
@@ -52,6 +55,7 @@ func newMemSemaphoreMabEgImpl(maxCap, initCap uint32) *memSemaphoreMabEgImpl {
 		cap:         initCap,
 		maxCap:      maxCap,
 		ewmaRewards: make([]float64, maxCap+1),
+		rng:         rand.New(rand.NewSource(rand.Int63())),
 	}
 	m.waiters.init()
 	m.lastBytes = perf.MemPmcGetMemAccesses()
@@ -98,10 +102,10 @@ func (m *memSemaphoreMabEgImpl) updateCapacity() {
 		}
 	}
 
-	if rand.Float64() < egExplrProb {
+	if m.rng.Float64() < egExplrProb {
 		// Explore: move at most one step away from the best arm.
 		dir := int32(1)
-		if rand.Intn(2) == 0 {
+		if m.rng.Intn(2) == 0 {
 			dir = -1
 		}
 		next := int32(bestCap) + dir
