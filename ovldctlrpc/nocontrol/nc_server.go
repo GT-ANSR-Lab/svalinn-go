@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 
 	. "ovldctlrpc/common"
 	. "utils"
@@ -32,13 +31,11 @@ type SncSession struct {
 	Id             int
 	NumPending     int
 	Closed         bool
-	Lock       SpinLock
+	Lock           sync.Mutex
 	AvailSlots     bitmap.Bitmap
 	CompletedSlots bitmap.Bitmap
 	Slots          [SncMaxWindow]*SncCtx
-	SenderMu       sync.Mutex
 	SendCondVar    *sync.Cond
-	HasWork        uint32
 	SendWaiter     sync.WaitGroup
 }
 
@@ -125,14 +122,15 @@ func sncSendCompletionVector(ops *SncOps, s *SncSession, vec *bitmap.Bitmap) {
 func sncSender(ops *SncOps, s *SncSession) {
 
 	for {
-		s.SenderMu.Lock()
-		for atomic.LoadUint32(&s.HasWork) == 0 {
-			s.SendCondVar.Wait()
-		}
-		atomic.StoreUint32(&s.HasWork, 0)
-		s.SenderMu.Unlock()
-
 		s.Lock.Lock()
+
+		for {
+			if !s.Closed && s.CompletedSlots.Count() == 0 {
+				s.SendCondVar.Wait()
+			} else {
+				break
+			}
+		}
 
 		// Exit
 		if s.Closed {
@@ -158,18 +156,11 @@ func sncSender(ops *SncOps, s *SncSession) {
 	}
 
 	// Wait for inflight requests to complete
-	s.SenderMu.Lock()
-	for {
-		s.Lock.Lock()
-		done := s.Closed && s.AvailSlots.Count()+s.CompletedSlots.Count() >= int(SncMaxWindow)
-		s.Lock.Unlock()
-		if done {
-			break
-		}
-		atomic.StoreUint32(&s.HasWork, 0)
+	s.Lock.Lock()
+	for !s.Closed || s.AvailSlots.Count()+s.CompletedSlots.Count() < int(SncMaxWindow) {
 		s.SendCondVar.Wait()
 	}
-	s.SenderMu.Unlock()
+	s.Lock.Unlock()
 
 	// Cleanup any remaining slots
 	for i := uint64(0); i < SncMaxWindow; i++ {
@@ -192,9 +183,8 @@ func sncWorker(ops *SncOps, s *SncSession, c *SncCtx) {
 
 	s.Lock.Lock()
 	s.CompletedSlots.Set(uint32(c.Cmn.Idx))
-	s.Lock.Unlock()
-	atomic.StoreUint32(&s.HasWork, 1)
 	s.SendCondVar.Signal()
+	s.Lock.Unlock()
 }
 
 func sncRecvOne(ops *SncOps, s *SncSession) int {
@@ -261,9 +251,8 @@ again:
 			if maxQueueDelay >= SncAqmThresh {
 				ctx.Cmn.Drop = true
 				s.CompletedSlots.Set(uint32(idx))
-				s.Lock.Unlock()
-				atomic.StoreUint32(&s.HasWork, 1)
 				s.SendCondVar.Signal()
+				s.Lock.Unlock()
 				AtomicAddUint64(&ops.SncStatReqDropped, 1)
 				goto again
 			}
@@ -301,7 +290,7 @@ func sncServer(ops *SncOps, conn *net.TCPConn) {
 		s.CompletedSlots.Remove(uint32(i))
 		s.Slots[i] = nil
 	}
-	s.SendCondVar = sync.NewCond(&s.SenderMu)
+	s.SendCondVar = sync.NewCond(&s.Lock)
 	s.SendWaiter.Add(1)
 
 	// Start the sender
@@ -320,9 +309,8 @@ func sncServer(ops *SncOps, conn *net.TCPConn) {
 	AtomicSubUint64(&ops.SncNumPending, uint64(s.NumPending))
 	s.NumPending = 0
 	s.Closed = true
-	s.Lock.Unlock()
-	atomic.StoreUint32(&s.HasWork, 1)
 	s.SendCondVar.Signal()
+	s.Lock.Unlock()
 
 	// Cleanup
 	AtomicSubUint64(&ops.SncNumSess, 1)
@@ -389,7 +377,7 @@ type SncOps struct {
 	SncStatReqDropped uint64
 	SncStatRespTx     uint64
 	// Lock
-	Lock SpinLock
+	Lock sync.Mutex
 	// Memory pool for datapath allocations
 	SncCtxPool  sync.Pool
 	SrpcCtxPool sync.Pool

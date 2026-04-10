@@ -5,7 +5,6 @@ import (
 	"net"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"math/rand"
 
 	. "ovldctlrpc/common"
@@ -71,7 +70,7 @@ const (
 //
 // Must be cacheline aligned, as we want one such structure per CPU core
 type SpccDrainedList struct {
-	Lock  SpinLock
+	Lock  sync.Mutex
 	ListH ListHead[SpccSession]
 	ListL ListHead[SpccSession]
 	_     [8]byte // padding must be verified manually
@@ -83,13 +82,11 @@ type SpccSession struct {
 	Id             int
 	NumPending     int
 	Closed         bool
-	Lock       SpinLock
+	Lock           sync.Mutex
 	AvailSlots     bitmap.Bitmap
 	CompletedSlots bitmap.Bitmap
 	Slots          [SpccMaxWindow]*SpccCtx
 	SendCondVar    *sync.Cond
-	SenderMu       sync.Mutex
-	HasWork        uint32
 	SendWaiter     sync.WaitGroup
 
 	DrainedLink ListNode[SpccSession]
@@ -266,14 +263,19 @@ func spccSendECredit(ops *SpccOps, s *SpccSession) int {
 
 func spccSender(ops *SpccOps, s *SpccSession) {
 	for {
-		s.SenderMu.Lock()
-		for atomic.LoadUint32(&s.HasWork) == 0 {
-			s.SendCondVar.Wait()
-		}
-		atomic.StoreUint32(&s.HasWork, 0)
-		s.SenderMu.Unlock()
-
 		s.Lock.Lock()
+
+		for {
+			if !s.Closed &&
+				!s.NeedECredit &&
+				!s.WakeUp &&
+				s.CompletedSlots.Count() == 0 {
+
+				s.SendCondVar.Wait()
+			} else {
+				break
+			}
+		}
 
 		// Exit
 		if s.Closed {
@@ -361,19 +363,10 @@ func spccSender(ops *SpccOps, s *SpccSession) {
 
 close:
 	// Wait for inflight requests to complete
-	s.SenderMu.Lock()
-	for {
-		s.Lock.Lock()
-		done := s.Closed && s.AvailSlots.Count()+s.CompletedSlots.Count() >= int(SpccMaxWindow)
-		s.Lock.Unlock()
-		if done {
-			break
-		}
-		atomic.StoreUint32(&s.HasWork, 0)
+	s.Lock.Lock()
+	for !s.Closed || s.AvailSlots.Count()+s.CompletedSlots.Count() < int(SpccMaxWindow) {
 		s.SendCondVar.Wait()
 	}
-	s.SenderMu.Unlock()
-	s.Lock.Lock()
 	spccRemoveFromDrainedList(ops, s)
 	s.Lock.Unlock()
 
@@ -514,9 +507,8 @@ func spccWakeUpDrainedSession(ops *SpccOps, numSess uint64) {
 		s.Lock.Lock()
 		s.WakeUp = true
 		s.Credit = 1
-		s.Lock.Unlock()
-		atomic.StoreUint32(&s.HasWork, 1)
 		s.SendCondVar.Signal()
+		s.Lock.Unlock()
 
 		AtomicAddUint64(&ops.SpccCreditUsed, 1)
 		numSess--
@@ -776,9 +768,8 @@ func spccWorker(ops *SpccOps, s *SpccSession, c *SpccCtx) {
 	// Signal the sender
 	s.Lock.Lock()
 	s.CompletedSlots.Set(uint32(c.Cmn.Idx))
-	s.Lock.Unlock()
-	atomic.StoreUint32(&s.HasWork, 1)
 	s.SendCondVar.Signal()
+	s.Lock.Unlock()
 }
 
 func spccRecvOne(ops *SpccOps, s *SpccSession) int {
@@ -870,9 +861,8 @@ again:
 			spccHandleReqDrop(ops, s, maxQueueDelay)
 			ctx.Cmn.Drop = true
 			s.CompletedSlots.Set(uint32(idx))
-			s.Lock.Unlock()
-			atomic.StoreUint32(&s.HasWork, 1)
 			s.SendCondVar.Signal()
+			s.Lock.Unlock()
 			AtomicAddUint64(&ops.SpccStatReqDropped, 1)
 			if ops.SpccMicroExpId == microExpId {
 				AtomicAddUint64(&ops.SpccDropReqs[microExpId], 1)
@@ -926,9 +916,8 @@ again:
 		}
 
 		// Signal the sender
-		s.Lock.Unlock()
-		atomic.StoreUint32(&s.HasWork, 1)
 		s.SendCondVar.Signal()
+		s.Lock.Unlock()
 
 		AtomicAddUint64(&ops.SpccStatCUpdateRx, 1)
 	default:
@@ -957,7 +946,7 @@ func spccServer(ops *SpccOps, conn *net.TCPConn) {
 		s.CompletedSlots.Remove(uint32(i))
 		s.Slots[i] = nil
 	}
-	s.SendCondVar = sync.NewCond(&s.SenderMu)
+	s.SendCondVar = sync.NewCond(&s.Lock)
 	s.SendWaiter.Add(1)
 	s.DrainedLink.Init(s)
 	s.DrainedProc = -1
@@ -984,9 +973,8 @@ func spccServer(ops *SpccOps, conn *net.TCPConn) {
 	s.NumPending = 0
 	s.Demand = 0
 	s.Closed = true
-	s.Lock.Unlock()
-	atomic.StoreUint32(&s.HasWork, 1)
 	s.SendCondVar.Signal()
+	s.Lock.Unlock()
 
 	// Cleanup
 	AtomicSubUint64(&ops.SpccNumSess, 1)
@@ -1109,7 +1097,7 @@ type SpccOps struct {
 	SpccStatRespTx     uint64
 
 	// (P)erformance-oriented (C)ongestion (C)ontrol state
-	SpccCtlLock        SpinLock
+	SpccCtlLock        sync.Mutex
 	SpccLastWakeup     uint64
 	SpccNextUpdate     uint64
 	SpccCtlState	   SpccCtlStateType
@@ -1131,7 +1119,7 @@ type SpccOps struct {
 	SpccDrained [SpccMaxProcs]SpccDrainedList
 
 	// Lock
-	Lock SpinLock
+	Lock sync.Mutex
 
 	// Memory pool for datapath allocations
 	SpccCtxPool  sync.Pool

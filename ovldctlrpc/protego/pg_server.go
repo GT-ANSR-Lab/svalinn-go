@@ -5,7 +5,6 @@ import (
 	"net"
 	"runtime"
 	"sync"
-	"sync/atomic"
 
 	. "ovldctlrpc/common"
 	. "utils"
@@ -36,7 +35,7 @@ type SpgCtx struct {
 //
 // Must be cacheline aligned, as we want one such structure per CPU core
 type SpgDrainedList struct {
-	Lock  SpinLock
+	Lock  sync.Mutex
 	ListH ListHead[SpgSession]
 	ListL ListHead[SpgSession]
 	_     [8]byte // padding must be verified manually
@@ -48,13 +47,11 @@ type SpgSession struct {
 	Id             int
 	NumPending     int
 	Closed         bool
-	Lock       SpinLock
+	Lock           sync.Mutex
 	AvailSlots     bitmap.Bitmap
 	CompletedSlots bitmap.Bitmap
 	Slots          [SpgMaxWindow]*SpgCtx
 	SendCondVar    *sync.Cond
-	SenderMu       sync.Mutex
-	HasWork        uint32
 	SendWaiter     sync.WaitGroup
 
 	DrainedLink ListNode[SpgSession]
@@ -231,14 +228,19 @@ func spgSendECredit(ops *SpgOps, s *SpgSession) int {
 
 func spgSender(ops *SpgOps, s *SpgSession) {
 	for {
-		s.SenderMu.Lock()
-		for atomic.LoadUint32(&s.HasWork) == 0 {
-			s.SendCondVar.Wait()
-		}
-		atomic.StoreUint32(&s.HasWork, 0)
-		s.SenderMu.Unlock()
-
 		s.Lock.Lock()
+
+		for {
+			if !s.Closed &&
+				!s.NeedECredit &&
+				!s.WakeUp &&
+				s.CompletedSlots.Count() == 0 {
+
+				s.SendCondVar.Wait()
+			} else {
+				break
+			}
+		}
 
 		// Exit
 		if s.Closed {
@@ -326,19 +328,10 @@ func spgSender(ops *SpgOps, s *SpgSession) {
 
 close:
 	// Wait for inflight requests to complete
-	s.SenderMu.Lock()
-	for {
-		s.Lock.Lock()
-		done := s.Closed && s.AvailSlots.Count()+s.CompletedSlots.Count() >= int(SpgMaxWindow)
-		s.Lock.Unlock()
-		if done {
-			break
-		}
-		atomic.StoreUint32(&s.HasWork, 0)
+	s.Lock.Lock()
+	for !s.Closed || s.AvailSlots.Count()+s.CompletedSlots.Count() < int(SpgMaxWindow) {
 		s.SendCondVar.Wait()
 	}
-	s.SenderMu.Unlock()
-	s.Lock.Lock()
 	spgRemoveFromDrainedList(ops, s)
 	s.Lock.Unlock()
 
@@ -479,9 +472,8 @@ func spgWakeUpDrainedSession(ops *SpgOps, numSess uint64) {
 		s.Lock.Lock()
 		s.WakeUp = true
 		s.Credit = 1
-		s.Lock.Unlock()
-		atomic.StoreUint32(&s.HasWork, 1)
 		s.SendCondVar.Signal()
+		s.Lock.Unlock()
 
 		AtomicAddUint64(&ops.SpgCreditUsed, 1)
 		numSess--
@@ -632,9 +624,8 @@ func spgWorker(ops *SpgOps, s *SpgSession, c *SpgCtx) {
 	// Signal the sender
 	s.Lock.Lock()
 	s.CompletedSlots.Set(uint32(c.Cmn.Idx))
-	s.Lock.Unlock()
-	atomic.StoreUint32(&s.HasWork, 1)
 	s.SendCondVar.Signal()
+	s.Lock.Unlock()
 }
 
 func spgRecvOne(ops *SpgOps, s *SpgSession) int {
@@ -713,9 +704,8 @@ again:
 			spgHandleReqDrop(ops, s, maxQueueDelay)
 			ctx.Cmn.Drop = true
 			s.CompletedSlots.Set(uint32(idx))
-			s.Lock.Unlock()
-			atomic.StoreUint32(&s.HasWork, 1)
 			s.SendCondVar.Signal()
+			s.Lock.Unlock()
 			goto again
 		}
 
@@ -761,9 +751,8 @@ again:
 		}
 
 		// Signal the sender
-		s.Lock.Unlock()
-		atomic.StoreUint32(&s.HasWork, 1)
 		s.SendCondVar.Signal()
+		s.Lock.Unlock()
 
 		AtomicAddUint64(&ops.SpgStatCUpdateRx, 1)
 	default:
@@ -792,7 +781,7 @@ func spgServer(ops *SpgOps, conn *net.TCPConn) {
 		s.CompletedSlots.Remove(uint32(i))
 		s.Slots[i] = nil
 	}
-	s.SendCondVar = sync.NewCond(&s.SenderMu)
+	s.SendCondVar = sync.NewCond(&s.Lock)
 	s.SendWaiter.Add(1)
 	s.DrainedLink.Init(s)
 	s.DrainedProc = -1
@@ -819,9 +808,8 @@ func spgServer(ops *SpgOps, conn *net.TCPConn) {
 	s.NumPending = 0
 	s.Demand = 0
 	s.Closed = true
-	s.Lock.Unlock()
-	atomic.StoreUint32(&s.HasWork, 1)
 	s.SendCondVar.Signal()
+	s.Lock.Unlock()
 
 	// Cleanup
 	AtomicSubUint64(&ops.SpgNumSess, 1)
@@ -932,7 +920,7 @@ type SpgOps struct {
 	SpgStatRespTx     uint64
 
 	// Throughput-based credit management state
-	SpgCmLock       SpinLock
+	SpgCmLock       sync.Mutex
 	SpgCmInCnt      uint64
 	SpgCmOutCnt     uint64
 	SpgCmDropCnt    uint64
@@ -945,7 +933,7 @@ type SpgOps struct {
 	SpgDrained [SpgMaxProcs]SpgDrainedList
 
 	// Lock
-	Lock SpinLock
+	Lock sync.Mutex
 
 	// Memory pool for datapath allocations
 	SpgCtxPool  sync.Pool

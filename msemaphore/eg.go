@@ -2,6 +2,7 @@ package msemaphore
 
 import (
 	"math/rand"
+	"sync"
 
 	"perf"
 	"utils"
@@ -25,7 +26,7 @@ const (
 )
 
 type memSemaphoreMabEgImpl struct {
-	mu utils.SpinLock
+	mu sync.Mutex
 
 	cap      uint32 // current capacity
 	count    uint32 // number of holders

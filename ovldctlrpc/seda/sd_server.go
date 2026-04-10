@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 
 	. "ovldctlrpc/common"
 	. "utils"
@@ -30,13 +29,11 @@ type SsdSession struct {
 	Id             int
 	NumPending     int
 	Closed         bool
-	Lock       SpinLock
+	Lock           sync.Mutex
 	AvailSlots     bitmap.Bitmap
 	CompletedSlots bitmap.Bitmap
 	Slots          [SsdMaxWindow]*SsdCtx
-	SenderMu       sync.Mutex
 	SendCondVar    *sync.Cond
-	HasWork        uint32
 	SendWaiter     sync.WaitGroup
 }
 
@@ -123,14 +120,15 @@ func ssdSendCompletionVector(ops *SsdOps, s *SsdSession, vec *bitmap.Bitmap) {
 func ssdSender(ops *SsdOps, s *SsdSession) {
 
 	for {
-		s.SenderMu.Lock()
-		for atomic.LoadUint32(&s.HasWork) == 0 {
-			s.SendCondVar.Wait()
-		}
-		atomic.StoreUint32(&s.HasWork, 0)
-		s.SenderMu.Unlock()
-
 		s.Lock.Lock()
+
+		for {
+			if !s.Closed && s.CompletedSlots.Count() == 0 {
+				s.SendCondVar.Wait()
+			} else {
+				break
+			}
+		}
 
 		// Exit
 		if s.Closed {
@@ -156,18 +154,11 @@ func ssdSender(ops *SsdOps, s *SsdSession) {
 	}
 
 	// Wait for inflight requests to complete
-	s.SenderMu.Lock()
-	for {
-		s.Lock.Lock()
-		done := s.Closed && s.AvailSlots.Count()+s.CompletedSlots.Count() >= int(SsdMaxWindow)
-		s.Lock.Unlock()
-		if done {
-			break
-		}
-		atomic.StoreUint32(&s.HasWork, 0)
+	s.Lock.Lock()
+	for !s.Closed || s.AvailSlots.Count()+s.CompletedSlots.Count() < int(SsdMaxWindow) {
 		s.SendCondVar.Wait()
 	}
-	s.SenderMu.Unlock()
+	s.Lock.Unlock()
 
 	// Cleanup any remaining slots
 	for i := uint64(0); i < SsdMaxWindow; i++ {
@@ -190,9 +181,8 @@ func ssdWorker(ops *SsdOps, s *SsdSession, c *SsdCtx) {
 
 	s.Lock.Lock()
 	s.CompletedSlots.Set(uint32(c.Cmn.Idx))
-	s.Lock.Unlock()
-	atomic.StoreUint32(&s.HasWork, 1)
 	s.SendCondVar.Signal()
+	s.Lock.Unlock()
 }
 
 func ssdRecvOne(ops *SsdOps, s *SsdSession) int {
@@ -284,7 +274,7 @@ func ssdServer(ops *SsdOps, conn *net.TCPConn) {
 		s.CompletedSlots.Remove(uint32(i))
 		s.Slots[i] = nil
 	}
-	s.SendCondVar = sync.NewCond(&s.SenderMu)
+	s.SendCondVar = sync.NewCond(&s.Lock)
 	s.SendWaiter.Add(1)
 
 	// Start the sender
@@ -303,9 +293,8 @@ func ssdServer(ops *SsdOps, conn *net.TCPConn) {
 	AtomicSubUint64(&ops.SsdNumPending, uint64(s.NumPending))
 	s.NumPending = 0
 	s.Closed = true
-	s.Lock.Unlock()
-	atomic.StoreUint32(&s.HasWork, 1)
 	s.SendCondVar.Signal()
+	s.Lock.Unlock()
 
 	// Cleanup
 	AtomicSubUint64(&ops.SsdNumSess, 1)
@@ -372,7 +361,7 @@ type SsdOps struct {
 	SsdStatReqDropped uint64
 	SsdStatRespTx     uint64
 	// Lock
-	Lock SpinLock
+	Lock sync.Mutex
 	// Memory pool for datapath allocations
 	SsdCtxPool  sync.Pool
 	SrpcCtxPool sync.Pool
