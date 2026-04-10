@@ -738,7 +738,7 @@ func PrintStats(cstat *CStat, sstat *SStat) {
 
 	var sb strings.Builder
 
-	fmt.Fprintf(&sb, "%d", gSettings.NumConns)
+	fmt.Fprintf(&sb, "%d", gSettings.NumConns*gSettings.NumAgents)
 	fmt.Fprintf(&sb, ",%.3f", cstat.OfferedRps)
 	fmt.Fprintf(&sb, ",%.3f", cstat.Rps)
 	fmt.Fprintf(&sb, ",%.3f", cstat.CpuBoundWorkRps)
