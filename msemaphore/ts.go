@@ -3,7 +3,6 @@ package msemaphore
 import (
 	"math"
 	"math/rand"
-	"sync"
 
 	"perf"
 	"utils"
@@ -33,7 +32,7 @@ const (
 )
 
 type memSemaphoreMabTsImpl struct {
-	mu sync.Mutex
+	mu utils.SpinLock
 
 	cap      uint32
 	count    uint32

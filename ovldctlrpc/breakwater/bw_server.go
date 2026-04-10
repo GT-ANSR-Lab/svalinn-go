@@ -5,6 +5,7 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	. "ovldctlrpc/common"
 	. "utils"
@@ -35,7 +36,7 @@ type SbwCtx struct {
 //
 // Must be cacheline aligned, as we want one such structure per CPU core
 type SbwDrainedList struct {
-	Lock  sync.Mutex
+	Lock  SpinLock
 	ListH ListHead[SbwSession]
 	ListL ListHead[SbwSession]
 	_     [8]byte // padding must be verified manually
@@ -47,11 +48,13 @@ type SbwSession struct {
 	Id             int
 	NumPending     int
 	Closed         bool
-	Lock           sync.Mutex
+	Lock       SpinLock
 	AvailSlots     bitmap.Bitmap
 	CompletedSlots bitmap.Bitmap
 	Slots          [SbwMaxWindow]*SbwCtx
 	SendCondVar    *sync.Cond
+	SenderMu       sync.Mutex
+	HasWork        uint32
 	SendWaiter     sync.WaitGroup
 
 	DrainedLink ListNode[SbwSession]
@@ -229,19 +232,14 @@ func sbwSendECredit(ops *SbwOps, s *SbwSession) int {
 
 func sbwSender(ops *SbwOps, s *SbwSession) {
 	for {
-		s.Lock.Lock()
-
-		for {
-			if !s.Closed &&
-				!s.NeedECredit &&
-				!s.WakeUp &&
-				s.CompletedSlots.Count() == 0 {
-
-				s.SendCondVar.Wait()
-			} else {
-				break
-			}
+		s.SenderMu.Lock()
+		for atomic.LoadUint32(&s.HasWork) == 0 {
+			s.SendCondVar.Wait()
 		}
+		atomic.StoreUint32(&s.HasWork, 0)
+		s.SenderMu.Unlock()
+
+		s.Lock.Lock()
 
 		// Exit
 		if s.Closed {
@@ -252,8 +250,6 @@ func sbwSender(ops *SbwOps, s *SbwSession) {
 		// Get a copy of the completed slots
 		var tmp bitmap.Bitmap
 		s.CompletedSlots.Clone(&tmp)
-
-		// Clear the completed slots
 		s.CompletedSlots.Xor(tmp)
 
 		// Check if there is a dropped request
@@ -313,10 +309,8 @@ func sbwSender(ops *SbwOps, s *SbwSession) {
 			drainedList := &ops.SbwDrained[procId]
 			drainedList.Lock.Lock()
 			if s.Demand > 0 {
-				// Positive demand, put to high priority queue
 				drainedList.ListH.Add(&s.DrainedLink)
 			} else {
-				// Zero demand, put to low priority queue
 				drainedList.ListL.AddTail(&s.DrainedLink)
 			}
 			s.IsLinked = true
@@ -329,10 +323,20 @@ func sbwSender(ops *SbwOps, s *SbwSession) {
 
 close:
 	// Wait for inflight requests to complete
-	s.Lock.Lock()
-	for !s.Closed || s.AvailSlots.Count()+s.CompletedSlots.Count() < int(SbwMaxWindow) {
+	s.SenderMu.Lock()
+	for {
+		s.Lock.Lock()
+		done := s.Closed && s.AvailSlots.Count()+s.CompletedSlots.Count() >= int(SbwMaxWindow)
+		s.Lock.Unlock()
+		if done {
+			break
+		}
+		atomic.StoreUint32(&s.HasWork, 0)
 		s.SendCondVar.Wait()
 	}
+	s.SenderMu.Unlock()
+	// still need sbwRemoveFromDrainedList under Lock for cleanup
+	s.Lock.Lock()
 	sbwRemoveFromDrainedList(ops, s)
 	s.Lock.Unlock()
 
@@ -473,8 +477,9 @@ func sbwWakeUpDrainedSession(ops *SbwOps, numSess uint64) {
 		s.Lock.Lock()
 		s.WakeUp = true
 		s.Credit = 1
-		s.SendCondVar.Signal()
 		s.Lock.Unlock()
+		atomic.StoreUint32(&s.HasWork, 1)
+		s.SendCondVar.Signal()
 
 		AtomicAddUint64(&ops.SbwCreditUsed, 1)
 		numSess--
@@ -572,8 +577,9 @@ func sbwWorker(ops *SbwOps, s *SbwSession, c *SbwCtx) {
 	// Signal the sender
 	s.Lock.Lock()
 	s.CompletedSlots.Set(uint32(c.Cmn.Idx))
-	s.SendCondVar.Signal()
 	s.Lock.Unlock()
+	atomic.StoreUint32(&s.HasWork, 1)
+	s.SendCondVar.Signal()
 }
 
 func sbwRecvOne(ops *SbwOps, s *SbwSession) int {
@@ -650,8 +656,9 @@ again:
 			sbwHandleReqDrop(ops, s, maxQueueDelay)
 			ctx.Cmn.Drop = true
 			s.CompletedSlots.Set(uint32(idx))
-			s.SendCondVar.Signal()
 			s.Lock.Unlock()
+			atomic.StoreUint32(&s.HasWork, 1)
+			s.SendCondVar.Signal()
 			AtomicAddUint64(&ops.SbwStatReqDropped, 1)
 			goto again
 		}
@@ -697,9 +704,10 @@ again:
 			AtomicSubUint64(&ops.SbwCreditUsed, uint64(creditDiff))
 		}
 
-		// Signal the sender
-		s.SendCondVar.Signal()
 		s.Lock.Unlock()
+		// Signal the sender
+		atomic.StoreUint32(&s.HasWork, 1)
+		s.SendCondVar.Signal()
 
 		AtomicAddUint64(&ops.SbwStatCUpdateRx, 1)
 	default:
@@ -728,7 +736,7 @@ func sbwServer(ops *SbwOps, conn *net.TCPConn) {
 		s.CompletedSlots.Remove(uint32(i))
 		s.Slots[i] = nil
 	}
-	s.SendCondVar = sync.NewCond(&s.Lock)
+	s.SendCondVar = sync.NewCond(&s.SenderMu)
 	s.SendWaiter.Add(1)
 	s.DrainedLink.Init(s)
 	s.DrainedProc = -1
@@ -755,8 +763,9 @@ func sbwServer(ops *SbwOps, conn *net.TCPConn) {
 	s.NumPending = 0
 	s.Demand = 0
 	s.Closed = true
-	s.SendCondVar.Signal()
 	s.Lock.Unlock()
+	atomic.StoreUint32(&s.HasWork, 1)
+	s.SendCondVar.Signal()
 
 	// Cleanup
 	AtomicSubUint64(&ops.SbwNumSess, 1)
@@ -867,7 +876,7 @@ type SbwOps struct {
 	SbwDrained [SbwMaxProcs]SbwDrainedList
 
 	// Lock
-	Lock sync.Mutex
+	Lock SpinLock
 
 	// Memory pool for datapath allocations
 	SbwCtxPool  sync.Pool
