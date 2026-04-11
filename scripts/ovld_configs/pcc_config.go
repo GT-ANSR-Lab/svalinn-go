@@ -27,7 +27,7 @@ func SpccCompUtilFn(minusStats, plusStats *SpccMicroExpStats) SpccDirType {
 	utilDiff = math.Abs(plusStats.Utility - minusStats.Utility)
 	utilDiffPcnt = utilDiff / minusStats.Utility
 
-	if utilDiffPcnt < 0.1 {
+	if utilDiffPcnt < 0.05 {
 		return SpccDirStay
 	}
 	if plusStats.Utility > minusStats.Utility {
