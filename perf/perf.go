@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"netdelay"
 	"pmc"
 )
 
@@ -34,6 +35,11 @@ var perfRefreshPeriod = 20 * time.Microsecond
 // and the total.
 const perfUseTotalOnly = true
 
+// If true, GetQueueDelayMax/Avg include the eBPF-measured network stack
+// delay (socket buffer residence time) in addition to the Go runtime
+// queueing delay. Set to false to use only the Go runtime delay.
+const includeNetDelay = true
+
 // Cached perf state. A single refresher goroutine updates these fields; all
 // readers go through the exported Get* functions below.
 type perfState struct {
@@ -52,6 +58,11 @@ type perfState struct {
 	// Go runtime queueing delay (refreshed periodically, nanoseconds)
 	qDelayMax atomic.Uint64
 	qDelayAvg atomic.Uint64
+
+	// Network stack delay measured by eBPF kprobes (nanoseconds).
+	// Time from tcp_v4_do_rcv (packet enters TCP) to tcp_recvmsg
+	// (userspace reads). Refreshed periodically.
+	netStackDelay atomic.Uint64
 
 	// Lifecycle
 	stop atomic.Bool   // set by PerfDeInit to signal the refresher goroutine
@@ -82,6 +93,7 @@ func PerfInit() {
 	// Initialize the underlying C modules.
 	pmc.MemPmcInit()
 	pmc.PowPmcInit()
+	netdelay.Init() // best-effort; returns -1 if eBPF unavailable
 
 	// Snapshot the static memory values once.
 	maxCh := pmc.MemPmcGetMaxMemChan()
@@ -117,6 +129,7 @@ func PerfDeInit() {
 		<-st.done
 	}
 
+	netdelay.DeInit()
 	pmc.MemPmcDeInit()
 	pmc.PowPmcDeInit()
 	perfStPtr.Store(nil)
@@ -175,6 +188,9 @@ func perfRefresher(st *perfState) {
 		qMax, qAvg := runtime.QueueDelay()
 		st.qDelayMax.Store(qMax)
 		st.qDelayAvg.Store(qAvg)
+
+		// Refresh network stack delay from eBPF (nanoseconds).
+		st.netStackDelay.Store(netdelay.ReadAndResetMaxDelay())
 	}
 }
 
@@ -242,21 +258,32 @@ func PowPmcGetEnergyConsumed() float64 {
  */
 
 // GetQueueDelayMax returns the cached maximum per-P runqueue queueing delay
-// (in nanoseconds) as of the last refresh tick.
+// plus the network stack delay measured by eBPF (in nanoseconds) as of the
+// last refresh tick. This gives the total delay a request experiences from
+// arriving at the kernel TCP stack to actually running in a goroutine.
 func GetQueueDelayMax() uint64 {
 	st := perfStPtr.Load()
 	if st == nil {
 		return 0
 	}
-	return st.qDelayMax.Load()
+	d := st.qDelayMax.Load()
+	if includeNetDelay {
+		d += st.netStackDelay.Load()
+	}
+	return d
 }
 
 // GetQueueDelayAvg returns the cached average per-P runqueue queueing delay
-// (in nanoseconds) as of the last refresh tick.
+// plus the network stack delay measured by eBPF (in nanoseconds) as of the
+// last refresh tick.
 func GetQueueDelayAvg() uint64 {
 	st := perfStPtr.Load()
 	if st == nil {
 		return 0
 	}
-	return st.qDelayAvg.Load()
+	d := st.qDelayAvg.Load()
+	if includeNetDelay {
+		d += st.netStackDelay.Load()
+	}
+	return d
 }
