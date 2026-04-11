@@ -23,15 +23,23 @@ const (
 
 	// Epsilon-greedy constants.
 	egExplrProb = 0.3
+
+	// Windowed max for membw normalization.
+	egMembwWindowSz = 50
 )
 
 type memSemaphoreMabEgImpl struct {
 	mu sync.Mutex
 
-	cap      uint32 // current capacity
-	count    uint32 // number of holders
-	maxCap   uint32 // maximum capacity
-	maxMembw float64
+	cap    uint32 // current capacity
+	count  uint32 // number of holders
+	maxCap uint32 // maximum capacity
+
+	// Windowed max for membw normalization.
+	membwWindow    [egMembwWindowSz]float64
+	membwWindowIdx int
+	membwWindowCnt int
+	maxMembw       float64
 
 	ewmaRewards []float64 // length maxCap+1, indexed 1..maxCap
 
@@ -73,8 +81,17 @@ func (m *memSemaphoreMabEgImpl) updateCapacity() {
 	nowBytes := perf.MemPmcGetMemAccesses()
 	membw := float64(nowBytes-m.lastBytes) / float64(now-m.lastTime)
 
-	if membw > m.maxMembw {
-		m.maxMembw = membw
+	// Windowed max: insert new sample and recompute max over the window.
+	m.membwWindow[m.membwWindowIdx] = membw
+	m.membwWindowIdx = (m.membwWindowIdx + 1) % egMembwWindowSz
+	if m.membwWindowCnt < egMembwWindowSz {
+		m.membwWindowCnt++
+	}
+	m.maxMembw = m.membwWindow[0]
+	for i := 1; i < m.membwWindowCnt; i++ {
+		if m.membwWindow[i] > m.maxMembw {
+			m.maxMembw = m.membwWindow[i]
+		}
 	}
 
 	// Reward for the current capacity arm.

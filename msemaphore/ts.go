@@ -30,15 +30,23 @@ const (
 	// Softmax exploration constants.
 	tsExplrProb = 0.3
 	tsTau       = 30.0
+
+	// Windowed max for membw normalization.
+	tsMembwWindowSz = 50
 )
 
 type memSemaphoreMabTsImpl struct {
 	mu sync.Mutex
 
-	cap      uint32
-	count    uint32
-	maxCap   uint32
-	maxMembw float64
+	cap    uint32
+	count  uint32
+	maxCap uint32
+
+	// Windowed max for membw normalization.
+	membwWindow    [tsMembwWindowSz]float64
+	membwWindowIdx int
+	membwWindowCnt int
+	maxMembw       float64
 
 	// Sliding window of past rewards per arm. samples[arm] has length tsWindowSz.
 	samples    [][]float64
@@ -103,8 +111,17 @@ func (m *memSemaphoreMabTsImpl) updateCapacity() {
 	nowBytes := perf.MemPmcGetMemAccesses()
 	membw := float64(nowBytes-m.lastBytes) / float64(now-m.lastTime)
 
-	if membw > m.maxMembw {
-		m.maxMembw = membw
+	// Windowed max: insert new sample and recompute max over the window.
+	m.membwWindow[m.membwWindowIdx] = membw
+	m.membwWindowIdx = (m.membwWindowIdx + 1) % tsMembwWindowSz
+	if m.membwWindowCnt < tsMembwWindowSz {
+		m.membwWindowCnt++
+	}
+	m.maxMembw = m.membwWindow[0]
+	for i := 1; i < m.membwWindowCnt; i++ {
+		if m.membwWindow[i] > m.maxMembw {
+			m.maxMembw = m.membwWindow[i]
+		}
 	}
 
 	normMembw := 0.0

@@ -23,10 +23,11 @@ PERF_UPDATE_INTERVAL = 20  # in microseconds; 0 = disable monitoring goroutine
 # Memory semaphore settings
 MSEM_ENABLE = True
 MSEM_CTL_DELAY_US = 1000
-MSEM_ALPHA = 0.8
+MSEM_ALPHA = 0.6
 MSEM_TARGET_NORM_MEMBW = 1.0
-MSEM_EXPLR_PROB = 0.6
+MSEM_EXPLR_PROB = 0.3
 MSEM_REWARD_EWMA_WEIGHT = 0.8
+MSEM_MEMBW_WINDOW_SZ = 50
 
 # Total number of client connections
 NUM_CONNS = 100
@@ -179,6 +180,12 @@ execute_remote([server_conn], cmd, True)
 cmd = "sed -i 's/egRewardEwmaWeight = .*/egRewardEwmaWeight = {}/'"\
       " ~/{}/msemaphore/eg.go".format(MSEM_REWARD_EWMA_WEIGHT, ARTIFACT_PATH)
 execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/egMembwWindowSz = .*/egMembwWindowSz = {}/'"\
+      " ~/{}/msemaphore/eg.go".format(MSEM_MEMBW_WINDOW_SZ, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
+cmd = "sed -i 's/tsMembwWindowSz = .*/tsMembwWindowSz = {}/'"\
+      " ~/{}/msemaphore/ts.go".format(MSEM_MEMBW_WINDOW_SZ, ARTIFACT_PATH)
+execute_remote([server_conn], cmd, True)
 
 # Rebuild Go runtime
 print("Building Go runtime...")
@@ -312,6 +319,7 @@ run_config += "msem alpha: {}\n".format(MSEM_ALPHA)
 run_config += "msem target norm membw: {}\n".format(MSEM_TARGET_NORM_MEMBW)
 run_config += "msem explr prob: {}\n".format(MSEM_EXPLR_PROB)
 run_config += "msem reward ewma weight: {}\n".format(MSEM_REWARD_EWMA_WEIGHT)
+run_config += "msem membw window size: {}\n".format(MSEM_MEMBW_WINDOW_SZ)
 run_config += "overload algorithm: {}\n".format(OVERLOAD_ALG)
 run_config += "number of nodes: {}\n".format(len(NODES))
 run_config += "number of client nodes: {}\n".format(len(CLIENTS))
