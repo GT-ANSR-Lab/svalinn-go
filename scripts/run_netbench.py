@@ -21,11 +21,11 @@ OVERLOAD_ALG = "pcc"
 PERF_UPDATE_INTERVAL = 20  # in microseconds; 0 = disable monitoring goroutine
 
 # Memory semaphore settings
-MSEM_ENABLE = False
+MSEM_ENABLE = True
 MSEM_CTL_DELAY_US = 1000
-MSEM_ALPHA = 0.6
+MSEM_ALPHA = 0.8
 MSEM_TARGET_NORM_MEMBW = 1.0
-MSEM_EXPLR_PROB = 0.3
+MSEM_EXPLR_PROB = 0.6
 MSEM_REWARD_EWMA_WEIGHT = 0.8
 
 # Total number of client connections
@@ -36,8 +36,8 @@ NUM_CLIENTS = len(CLIENTS)
 NUM_AGENTS = len(AGENTS)
 
 # List of offered load
-NUM_SAMPLES = 1
-MAX_OFFERED_LOAD = 1000000
+NUM_SAMPLES = 10
+MAX_OFFERED_LOAD = 300000
 OFFERED_LOADS = [int((i+1) * (MAX_OFFERED_LOAD/NUM_SAMPLES)) for i in range(NUM_SAMPLES)]
 
 # Network RTT on the testbed
@@ -45,14 +45,14 @@ NET_RTT = 10
 SLO = 1000
 
 # Netbench settings
-CPU_BOUND_REQ_PCNT = 0
+CPU_BOUND_REQ_PCNT = 50
 
 # Server worker settings
 NUM_CPU_WORKERS = 4096
 CPU_WORK_ITERS = 5000
-NUM_MEMBW_WORKERS = 4096
+NUM_MEMBW_WORKERS = 16384
 MEMBW_WORK_ITERS = 1
-MEMBW_BUF_SIZE = 500000
+MEMBW_BUF_SIZE = 1000000
 
 # Duration of a single test case (i.e., one offered load sample)
 DURATION_SEC = 30
