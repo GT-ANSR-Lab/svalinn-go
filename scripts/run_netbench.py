@@ -18,16 +18,16 @@ import pandas as pd
 OVERLOAD_ALG = "pcc"
 
 # Perf monitoring settings
-PERF_UPDATE_INTERVAL = 20  # in microseconds; 0 = disable monitoring goroutine
+PERF_UPDATE_INTERVAL = 5  # in microseconds; 0 = disable monitoring goroutine
 
 # Memory semaphore settings
 MSEM_ENABLE = True
 MSEM_CTL_DELAY_US = 1000
 MSEM_ALPHA = 0.6
-MSEM_TARGET_NORM_MEMBW = 1.0
+MSEM_TARGET_NORM_MEMBW = 0.8
 MSEM_EXPLR_PROB = 0.3
 MSEM_REWARD_EWMA_WEIGHT = 0.8
-MSEM_MEMBW_WINDOW_SZ = 50
+MSEM_MEMBW_WINDOW_SZ = 100
 
 # Total number of client connections
 NUM_CONNS = 100

@@ -4,7 +4,7 @@ import "math"
 
 // Server config
 const (
-	SpccQdelayBudget              uint64  = 250
+	SpccQdelayBudget              uint64  = 2500
 	SpccRttUs                     uint64  = 10
   	SpccPreMonIntUs               uint64  = 200
   	SpccMonIntUs                  uint64  = 500
