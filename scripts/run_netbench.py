@@ -47,8 +47,6 @@ SLO = 1000
 
 # Netbench settings
 CPU_BOUND_REQ_PCNT = 50
-
-# Server worker settings
 NUM_CPU_WORKERS = 4096
 CPU_WORK_ITERS = 5000
 NUM_MEMBW_WORKERS = 16384

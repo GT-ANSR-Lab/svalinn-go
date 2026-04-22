@@ -3,8 +3,8 @@ package seda
 // Seda paramaters
 const (
 	SedaAlpha   float64 = 0.7
-	SedaTarget  uint64  = 80
-	SedaTimeout uint64  = 1000
+	SedaTarget  uint64  = 3000
+	SedaTimeout uint64  = 5000
 	SedaErrD    float64 = 0.0
 	SedaErrI    float64 = -0.5
 	SedaAdjI    float64 = 4.0

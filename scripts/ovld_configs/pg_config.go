@@ -2,7 +2,7 @@ package protego
 
 // Server config
 const (
-	SpgLatencyBudget    uint64  = 250
+	SpgLatencyBudget    uint64  = 2500
 	SpgCmSlopeThresh    float64 = 0.2
 	SpgCmSlopeInv       uint64  = 4
 	SpgCmUpdateInterval uint64  = 200
