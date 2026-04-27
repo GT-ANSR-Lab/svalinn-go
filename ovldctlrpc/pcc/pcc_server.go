@@ -668,6 +668,7 @@ func spccUpdateCreditPool(ops *SpccOps) {
 
 		// Get the current credit pool size
 		newCp = AtomicGetUint64(&ops.SpccCreditPool)
+		creditUsed = AtomicGetUint64(&ops.SpccCreditUsed)
 
 		if SpccMicroExpStrictLabelling {
 			if ops.SpccMicroExpDirs[1] == 1 {
@@ -697,8 +698,15 @@ func spccUpdateCreditPool(ops *SpccOps) {
 		case SpccDirMinus:
 			newCp = spccDecrCp(ops)
 		case SpccDirStay:
+			if creditUsed < newCp {
+				newCp = spccDecrCp(ops)
+			}
 		case SpccDirPlus:
-			newCp = spccIncrCp(ops)
+			if creditUsed >= newCp {
+				newCp = spccIncrCp(ops)
+			} else {
+				newCp = spccDecrCp(ops)
+			}
 		default:
 		}
 
