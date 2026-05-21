@@ -8,6 +8,8 @@ import (
 	. "ovldctlrpc/common"
 	. "utils"
 
+	"perf"
+
 	"github.com/kelindar/bitmap"
 )
 
@@ -172,8 +174,17 @@ func ssdSender(ops *SsdOps, s *SsdSession) {
 }
 
 func ssdWorker(ops *SsdOps, s *SsdSession, c *SsdCtx) {
-	c.Cmn.Drop = false
-	ops.SsdHandler(c.Cmn)
+
+	maxQueueDelay = perf.GetQueueDelayMax() / 1000
+	if maxQueueDelay >= SedaQdelayThresh {
+		c.Cmn.Drop = true
+	} else {
+		c.Cmn.Drop = false
+	}
+
+	if !c.Cmn.Drop {
+		ops.SsdHandler(c.Cmn)
+	}
 
 	if c.Cmn.Drop {
 		AtomicAddUint64(&ops.SsdStatReqDropped, 1)

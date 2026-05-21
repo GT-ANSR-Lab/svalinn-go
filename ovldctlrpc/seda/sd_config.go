@@ -10,6 +10,7 @@ const (
 	SedaAdjI    float64 = 4.0
 	SedaAdjD    float64 = 1.1
 	SedaCi      float64 = -0.1
+	SedaQdelayThresh      uint64 = 200
 )
 
 // Client config
