@@ -175,7 +175,7 @@ func ssdSender(ops *SsdOps, s *SsdSession) {
 
 func ssdWorker(ops *SsdOps, s *SsdSession, c *SsdCtx) {
 
-	maxQueueDelay = perf.GetQueueDelayMax() / 1000
+	maxQueueDelay := perf.GetQueueDelayMax() / 1000
 	if maxQueueDelay >= SedaQdelayThresh {
 		c.Cmn.Drop = true
 	} else {
