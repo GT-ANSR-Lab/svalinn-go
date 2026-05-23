@@ -272,7 +272,7 @@ for offered_load in OFFERED_LOADS:
     cmd = "sudo pkill -9 netbench_client"
     execute_remote([server_conn, client_conn] + agent_conns, cmd, True, False)
 
-    sleep(1)
+    sleep(5)
 
 # Close connections
 server_conn.close()
