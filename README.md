@@ -42,7 +42,7 @@ Now that the initial one time setup is done on the deployed nodes, we can build 
 
 ## Running the tests
 
-Once the system and the respective applications are built, we can run the tests. Each application has a test script named `run_*.py`. For example, netbench application has a script named `run_netbench.py`, rocksdb application has a script named `run_rocksdb.py`, and so on. To run the tests you can simply execute the python script corresponding to the required application. The python script takes no command line arguments. The required test settings can be configured by directly updating the variables in the script itself. The important options that need frequent updates are
+Once the system and the respective applications are built, we can run the tests. Each application has a test script named `run_*.py`. For example, netbench application has a script named `run_netbench.py`. To run the tests you can simply execute the python script corresponding to the required application. The python script takes no command line arguments. The required test settings can be configured by directly updating the variables in the script itself. The important options that need frequent updates are
 1. `OVERLOAD_ALG` - The overload control algorithm to use. This can be `nocontrol`, `breakwater`, `seda`, `protego`, `pcc`. The baselines mentioned in the paper are SEDA and Protego, which can be selected using `seda` and `protego` respectively. For `Svalinn`, the value should be set to `pcc`.
 2. `MSEM_ENABLE` - True, if the application should use the memory semaphore. False, otherwise. When the OVERLOAD_ALG is anything other than `pcc`, this option should be set to False. For `Svalinn` (i.e., `pcc`), this option can be set to True.
 3. `NUM_CONNS` - Total number of client threads across all the client nodes. These threads generate the test traffic to the server.
@@ -58,7 +58,7 @@ The results of the test run are dumped in the `outputs/<app_name>/<date>/<time>`
 
 1. Svalinn's Utility-based Admission Controller - `svalinn-go/ovldctlrpc/pcc`
 2. Svalinn's Memory Semaphore - `svalinn-go/msemaphore`
-3. Evaluated applications - `svalinn-go/app/*`
+3. Evaluated applications - `svalinn-go/apps/*`
 4. Hardware Performance Counter Measurement library - `svalinn-go/pmc_mod`
 5. Linux network stack's socket buffer RX path delay estimator (eBPF) library - `svalinn-go/netdelay`
 6. Performance thread (collects network stack delay and hardware performance counters on a dedicated core) - `svalinn-go/perf`
