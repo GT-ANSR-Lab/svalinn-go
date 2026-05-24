@@ -15,19 +15,19 @@ import pandas as pd
 ################################
 
 # Overload controller settings
-OVERLOAD_ALG = "pcc"
+OVERLOAD_ALG = "seda"
 
 # Perf monitoring settings
 PERF_UPDATE_INTERVAL = 5  # in microseconds; 0 = disable monitoring goroutine
 
 # Memory semaphore settings
-MSEM_ENABLE = True
-MSEM_CTL_DELAY_US = 1000
-MSEM_ALPHA = 0.6
-MSEM_TARGET_NORM_MEMBW = 0.8
+MSEM_ENABLE = False
+MSEM_CTL_DELAY_US = 500
+MSEM_ALPHA = 0.8
+MSEM_TARGET_NORM_MEMBW = 1.0
 MSEM_EXPLR_PROB = 0.3
 MSEM_REWARD_EWMA_WEIGHT = 0.8
-MSEM_MEMBW_WINDOW_SZ = 100
+MSEM_MEMBW_WINDOW_SZ = 50
 
 # Total number of client connections
 NUM_CONNS = 100
@@ -37,24 +37,24 @@ NUM_CLIENTS = len(CLIENTS)
 NUM_AGENTS = len(AGENTS)
 
 # List of offered load
-NUM_SAMPLES = 10
-MAX_OFFERED_LOAD = 300000
+NUM_SAMPLES = 20
+MAX_OFFERED_LOAD = 500000
 OFFERED_LOADS = [int((i+1) * (MAX_OFFERED_LOAD/NUM_SAMPLES)) for i in range(NUM_SAMPLES)]
 
 # Network RTT on the testbed
 NET_RTT = 10
-SLO = 1000
+SLO = 2500
 
 # Netbench settings
 CPU_BOUND_REQ_PCNT = 50
 NUM_CPU_WORKERS = 4096
-CPU_WORK_ITERS = 5000
-NUM_MEMBW_WORKERS = 16384
+CPU_WORK_ITERS = 1000
+NUM_MEMBW_WORKERS = 32768
 MEMBW_WORK_ITERS = 1
 MEMBW_BUF_SIZE = 1000000
 
 # Duration of a single test case (i.e., one offered load sample)
-DURATION_SEC = 30
+DURATION_SEC = 12
 
 # Provides the opportunity to replace the files in all the machines
 # Helps in testing quickly by updating the required files

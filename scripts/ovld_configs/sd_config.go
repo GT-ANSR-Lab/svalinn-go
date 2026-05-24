@@ -1,16 +1,25 @@
 package seda
 
+//
+// Parameters used in Svalinn evaluation (on xl170)
+//
+// SedaTarget  uint64  = 2500
+// SedaTimeout uint64  = 5000
+// SedaAdjI    float64 = 2.0
+// SedaAdjD    float64 = 1.3
+// SedaQdelayThresh      uint64 = 1500
+
 // Seda paramaters
 const (
 	SedaAlpha   float64 = 0.7
-	SedaTarget  uint64  = 80
-	SedaTimeout uint64  = 1000
+	SedaTarget  uint64  = 2500
+	SedaTimeout uint64  = 5000
 	SedaErrD    float64 = 0.0
 	SedaErrI    float64 = -0.5
-	SedaAdjI    float64 = 4.0
-	SedaAdjD    float64 = 1.1
+	SedaAdjI    float64 = 2.0
+	SedaAdjD    float64 = 1.3
 	SedaCi      float64 = -0.1
-	SedaQdelayThresh      uint64 = 200
+	SedaQdelayThresh      uint64 = 1500
 )
 
 // Client config

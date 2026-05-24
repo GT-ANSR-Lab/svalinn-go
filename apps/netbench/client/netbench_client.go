@@ -22,7 +22,7 @@ import (
 // Constants
 const (
 	StatPort         int = 8002
-	WarmUpTimeUs     int = 10000000
+	WarmUpTimeUs     int = 3000000
 	MaxCatchUpTimeUs int = 5000
 )
 

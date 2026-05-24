@@ -2,13 +2,27 @@ package pcc
 
 import "math"
 
+//
+// Parameters used in Svalinn evaluation (on xl170)
+//
+// SpccQdelayBudget              uint64  = 1500
+// SpccRttUs                     uint64  = 10
+// SpccPreMonIntUs               uint64  = 500
+// SpccMonIntUs                  uint64  = 1000
+// SpccEpsilon                   uint64  = 10
+// SpccMicroExpStrictLabelling   bool = false
+// SpccMicroExpPerturbCp         bool = true
+// SpccCalcUtilFn - tput
+// SpccCompUtilFn - deadband (1%)
+
+
 // Server config
 const (
-	SpccQdelayBudget              uint64  = 2500
+	SpccQdelayBudget              uint64  = 1500
 	SpccRttUs                     uint64  = 10
-  	SpccPreMonIntUs               uint64  = 200
-  	SpccMonIntUs                  uint64  = 500
-  	SpccEpsilon                   uint64  = 1
+  	SpccPreMonIntUs               uint64  = 500
+  	SpccMonIntUs                  uint64  = 1000
+  	SpccEpsilon                   uint64  = 10
     SpccMicroExpStrictLabelling   bool = false
     SpccMicroExpPerturbCp         bool = true
 )
@@ -27,7 +41,7 @@ func SpccCompUtilFn(minusStats, plusStats *SpccMicroExpStats) SpccDirType {
 	utilDiff = math.Abs(plusStats.Utility - minusStats.Utility)
 	utilDiffPcnt = utilDiff / minusStats.Utility
 
-	if utilDiffPcnt < 0.05 {
+	if utilDiffPcnt < 0.01 {
 		return SpccDirStay
 	}
 	if plusStats.Utility > minusStats.Utility {
